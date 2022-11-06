@@ -1,0 +1,97 @@
+name: CI
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.65.0
+          default: true
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - run: ./scripts/ci/fmt
+        shell: bash
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.65.0
+          default: true
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: ./scripts/ci/clippy
+        shell: bash
+
+  cargo-deny:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        checks:
+          - advisories
+          - bans licenses sources
+    continue-on-error: ${{ matrix.checks == 'advisories' }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: EmbarkStudios/cargo-deny-action@v1
+        with:
+          arguments: '--manifest-path ./Cargo.toml'
+          command: check ${{ matrix.checks }}
+
+  linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain:
+          - 1.65.0
+          - nightly
+    continue-on-error: ${{ matrix.toolchain == 'nightly' }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.toolchain }}
+          default: true
+      - uses: Swatinem/rust-cache@v2
+      - run: ./scripts/ci/build-test
+        shell: bash
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.65.0
+          default: true
+      - uses: Swatinem/rust-cache@v2
+      - run: ./scripts/ci/build-test
+        shell: bash
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.65.0
+          default: true
+      - uses: Swatinem/rust-cache@v2
+      - run: ./scripts/ci/build-test
+        shell: bash

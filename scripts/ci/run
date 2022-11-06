@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -eou pipefail
+
+./scripts/ci/fmt
+./scripts/ci/clippy
+./scripts/ci/build-test
