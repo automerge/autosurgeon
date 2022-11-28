@@ -1,6 +1,6 @@
 //! # AutoSurgeon
 //!
-//! `autosurgeon` is a library for interaction with `[automerge]` documents in Rust with an API
+//! `autosurgeon` is a library for interaction with [`automerge`] documents in Rust with an API
 //! inspired by `serde`. The core of the library are two traits: [`Reconcile`], which describes how
 //! to take a rust value and update an automerge document to match the value; and [`Hydrate`],
 //! which describes how to create a rust value given an automerge document.
@@ -31,7 +31,7 @@
 //! #[derive(Debug, Clone, Reconcile, Hydrate, PartialEq)]
 //! struct Address {
 //!    line_one: String,
-//!    line_two: String,
+//!    line_two: Option<String>,
 //!    city: String,
 //!    postcode: String,
 //! }
@@ -215,9 +215,11 @@
 //!     ]
 //! };
 //!
+//! // Put the catalog into the document
 //! let mut doc = automerge::AutoCommit::new();
 //! reconcile(&mut doc, &catalog).unwrap();
 //!
+//! // Fork the document and insert a new product at the start of the catalog
 //! let mut doc2 = doc.fork().with_actor(automerge::ActorId::random());
 //! let mut catalog2 = catalog.clone();
 //! catalog2.products.insert(0, Product {
@@ -226,17 +228,20 @@
 //! });
 //! reconcile(&mut doc2, &catalog2).unwrap();
 //!
+//! // Concurrenctly remove a product from the catalog in the original doc
 //! catalog.products.remove(0);
 //! reconcile(&mut doc, &catalog).unwrap();
 //!
+//! // Merge the two changes
 //! doc.merge(&mut doc2).unwrap();
 //! assert_doc!(
 //!     doc.document(),
 //!     map! {
 //!         "products" => { list! {
+//!             // This first item is conflicted, we expected it to be the leafblower
 //!             { map! {
-//!                 "id" => { 2_u64, 3_u64 },
-//!                 "name" => { "Strimmer", "Leafblower" },
+//!                 "id" => { 2_u64, 3_u64 }, // Conflict on the ID
+//!                 "name" => { "Strimmer", "Leafblower" }, // Conflict on the name
 //!             }},
 //!             { map! {
 //!                 "id" => { 2_u64 },
