@@ -486,3 +486,15 @@ fn reconcile_tuple_enum_key() {
         }
     );
 }
+
+mod enumkeyvisibility {
+    use autosurgeon::Reconcile;
+
+    // Check that the key type derived by `Reconcile` has the correct visibility
+    #[derive(Reconcile)]
+    #[allow(dead_code)]
+    pub enum Thing {
+        ThatThing,
+        TheOtherThing,
+    }
+}

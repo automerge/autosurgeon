@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use proc_macro2::{Span, TokenStream};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, quote_spanned};
 use syn::spanned::Spanned;
 
 use crate::attrs;
@@ -411,7 +411,7 @@ impl<'a> EnumKey<'a> {
         self.variants.iter().any(|v| v.has_lifetime())
     }
 
-    fn type_def(&self) -> Option<TokenStream> {
+    fn type_def(&self, vis: &syn::Visibility) -> Option<TokenStream> {
         if !self.has_keyed_variants() {
             return None;
         }
@@ -426,9 +426,10 @@ impl<'a> EnumKey<'a> {
         } else {
             quote! {#name}
         };
-        Some(quote! {
+        Some(quote_spanned! { Span::mixed_site() =>
             #[derive(Clone, PartialEq)]
-            enum #name_with_lifetime {
+            #[allow(clippy::derive_partial_eq_without_eq)]
+            #vis enum #name_with_lifetime {
                 #(#variant_defs),*
             }
         })
@@ -520,6 +521,7 @@ impl<'a> EnumKey<'a> {
 }
 
 pub(super) fn enum_impl(
+    vis: &syn::Visibility,
     name: &syn::Ident,
     generics: &syn::Generics,
     reconciler_ident: &syn::Ident,
@@ -548,7 +550,7 @@ pub(super) fn enum_impl(
         reconcile,
         hydrate_key: enumkey.hydrate_key(),
         get_key: enumkey.get_key(),
-        key_type_def: enumkey.type_def(),
+        key_type_def: enumkey.type_def(vis),
     })
 }
 

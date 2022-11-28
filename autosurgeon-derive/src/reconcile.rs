@@ -47,6 +47,7 @@ pub fn derive_reconcile(input: proc_macro::TokenStream) -> proc_macro::TokenStre
         &generics,
         name,
         &input.data,
+        &input.vis,
     ) {
         Ok(ReconcileImpl {
             reconcile: the_impl,
@@ -97,6 +98,7 @@ fn reconcile_impl(
     generics: &syn::Generics,
     name: &syn::Ident,
     data: &Data,
+    vis: &syn::Visibility,
 ) -> Result<ReconcileImpl, error::DeriveError> {
     if let Some(reconcile) = container_attrs.reconcile_with() {
         return Ok(reconcile_with_impl(reconcile, reconciler_ident));
@@ -114,7 +116,7 @@ fn reconcile_impl(
             }
             Fields::Unit => Err(error::DeriveError::Unit),
         },
-        Data::Enum(ref data) => enum_impl::enum_impl(name, generics, reconciler_ident, data),
+        Data::Enum(ref data) => enum_impl::enum_impl(vis, name, generics, reconciler_ident, data),
         Data::Union(_) => Err(error::DeriveError::Union),
     }
 }
