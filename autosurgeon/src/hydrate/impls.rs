@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use super::{hydrate_prop, Hydrate, HydrateError, Unexpected};
+use super::{hydrate_prop, Hydrate, HydrateError};
 use crate::ReadDoc;
 
 impl Hydrate for String {
@@ -28,16 +28,17 @@ macro_rules! int_impl {
         impl Hydrate for $ty {
             fn $hydrator(u: $from_ty) -> Result<Self, HydrateError> {
                 u.try_into().map_err(|_| {
-                    HydrateError::Unexpected(Unexpected::Other {
-                        expected: stringify!("a ", $ty),
-                        found: "an integer which is too large".to_string(),
-                    })
+                    HydrateError::unexpected(
+                        stringify!("a ", $ty),
+                        "an integer which is too large".to_string(),
+                    )
                 })
             }
         }
     };
 }
 
+int_impl!(u8, hydrate_uint, u64);
 int_impl!(u16, hydrate_uint, u64);
 int_impl!(u32, hydrate_uint, u64);
 int_impl!(u64, hydrate_uint, u64);
@@ -45,12 +46,6 @@ int_impl!(i8, hydrate_int, i64);
 int_impl!(i16, hydrate_int, i64);
 int_impl!(i32, hydrate_int, i64);
 int_impl!(i64, hydrate_int, i64);
-
-impl Hydrate for Vec<u8> {
-    fn hydrate_bytes(bytes: &[u8]) -> Result<Self, HydrateError> {
-        Ok(bytes.to_vec())
-    }
-}
 
 impl Hydrate for bool {
     fn hydrate_bool(b: bool) -> Result<Self, HydrateError> {

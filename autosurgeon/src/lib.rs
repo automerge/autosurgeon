@@ -414,6 +414,7 @@
 
 mod counter;
 pub use counter::Counter;
+pub mod bytes;
 mod doc;
 pub use doc::{Doc, ReadDoc};
 pub mod hydrate;

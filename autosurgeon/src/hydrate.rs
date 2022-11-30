@@ -110,12 +110,12 @@ pub fn hydrate<D: ReadDoc, H: Hydrate>(doc: &D) -> Result<H, HydrateError> {
 }
 
 /// Hydrate an instance of `H` located at property `prop` of object `obj`
-pub fn hydrate_prop<'a, D: ReadDoc, H: Hydrate, P: Into<Prop<'a>>>(
+pub fn hydrate_prop<'a, D: ReadDoc, H: Hydrate, P: Into<Prop<'a>>, O: AsRef<automerge::ObjId>>(
     doc: &D,
-    obj: &automerge::ObjId,
+    obj: O,
     prop: P,
 ) -> Result<H, HydrateError> {
-    H::hydrate(doc, obj, prop.into())
+    H::hydrate(doc, obj.as_ref(), prop.into())
 }
 
 /// Hydrate an instance of `H` located at a path in the document
@@ -195,8 +195,11 @@ impl HydrateError {
     ///     ))
     /// }
     /// ```
-    pub fn unexpected(expected: &'static str, found: String) -> Self {
-        HydrateError::Unexpected(Unexpected::Other { expected, found })
+    pub fn unexpected<S: AsRef<str>>(expected: S, found: String) -> Self {
+        HydrateError::Unexpected(Unexpected::Other {
+            expected: expected.as_ref().to_string(),
+            found,
+        })
     }
 }
 
@@ -215,10 +218,7 @@ pub enum Unexpected {
     Timestamp,
     Unknown,
     None,
-    Other {
-        expected: &'static str,
-        found: String,
-    },
+    Other { expected: String, found: String },
 }
 
 impl std::fmt::Display for Unexpected {

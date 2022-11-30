@@ -181,10 +181,10 @@ impl<'a> EnumUnitFields<'a> {
                 ) -> Result<Self, autosurgeon::HydrateError> {
                     match val {
                         #unit_branches,
-                        other => Err(autosurgeon::HydrateError::Unexpected(autosurgeon::hydrate::Unexpected::Other{
-                            expected: #unit_error,
-                            found: other.to_string(),
-                        })),
+                        other => Err(autosurgeon::HydrateError::unexpected(
+                            #unit_error,
+                            other.to_string(),
+                        )),
                     }
                 }
             }
@@ -218,10 +218,10 @@ impl<'a> EnumAsMapFields<'a> {
                     obj: &automerge::ObjId,
                 ) -> Result<Self, autosurgeon::HydrateError> {
                     #(#stanzas)*
-                    Err(autosurgeon::HydrateError::Unexpected(autosurgeon::hydrate::Unexpected::Other{
-                        expected: "A map with one key",
-                        found: "something else".to_string(),
-                    }))
+                    Err(autosurgeon::HydrateError::unexpected(
+                        "A map with one key",
+                        "something else".to_string(),
+                    ))
                 }
             }
         }
