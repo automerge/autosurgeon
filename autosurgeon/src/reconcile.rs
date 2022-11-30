@@ -876,8 +876,8 @@ pub fn reconcile<R: Reconcile, D: Doc>(doc: &mut D, value: R) -> Result<(), Reco
 ///     }
 /// );
 /// ```
-pub fn reconcile_prop<'a, R: Reconcile, O: AsRef<automerge::ObjId>, P: Into<Prop<'a>>>(
-    doc: &mut automerge::AutoCommit,
+pub fn reconcile_prop<'a, D: Doc, R: Reconcile, O: AsRef<automerge::ObjId>, P: Into<Prop<'a>>>(
+    doc: &mut D,
     obj: O,
     prop: P,
     value: R,
