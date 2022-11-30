@@ -356,8 +356,8 @@ pub trait Reconcile {
     /// # }
     /// ```
     ///
-    /// Here the value of `obj` and `doc` passed to `hydrate_key` will be `automerge::ROOT` and
-    /// `idx` respectively, where `idx` is the index of the user in the `"users"` array.
+    /// Here the value of `obj` and `doc` passed to `hydrate_key` will be the ID of the `"users"`
+    /// list and `idx` respectively, where `idx` is the index of the user in the `"users"` array.
     fn hydrate_key<'a, D: ReadDoc>(
         #[allow(unused_variables)] doc: &D,
         #[allow(unused_variables)] obj: &automerge::ObjId,
@@ -931,7 +931,12 @@ pub fn reconcile_insert<R: Reconcile>(
 /// Say we define a type `Product` for the elements of the `products` list, this type will need to
 /// implement [`Reconcile::hydrate_key`] such that it returns the `id` field value. However, the
 /// `obj`, and `prop` arguments passed to [`Reconcile::hydrate_key`] will point at the overall
-/// product map. In this
+/// product map. `hydrate_key` takes an additional `inner` property which should be the property of
+/// the key being hydrated from within `prop`. In the above example when hydrating a product the
+/// `obj` and `prop` passed to [`Reconcile::hydrate_key`] would be the ID of the "products" list
+/// and the index of the product in question. To hydrate the key of the product then you would pass
+/// the object ID of the "products" list as `obj`, the index of the product as `outer`, and the
+/// "id" key as `inner`.
 pub fn hydrate_key<'a, D: ReadDoc, H: crate::Hydrate + Clone>(
     doc: &D,
     obj: &automerge::ObjId,
