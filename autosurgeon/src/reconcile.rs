@@ -1242,13 +1242,15 @@ mod tests {
             .transact_with::<_, _, automerge::AutomergeError, _>(
                 |_| automerge::transaction::CommitOptions::default().with_message("Set Contact Book".to_owned()),
                 |tx| {
-
-                    reconcile_prop(tx, automerge::ROOT, "contacts", alice).unwrap();
+                    use automerge::{Value, ObjType};
+                    let Ok(Some((Value::Object(ObjType::List), id))) = tx.get(&automerge::ROOT, "contacts") else {
+                        panic!("unable to get contacts object ID");
+                    };
+                    reconcile_prop(tx, id, 1_usize, alice).unwrap();
                     Ok(())
                 });
         let changes = doc.get_changes(&[]).unwrap();
         assert_eq!(changes.len(), 2);
-
 
         assert_doc!(
             &doc,
