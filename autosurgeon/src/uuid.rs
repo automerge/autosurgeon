@@ -18,3 +18,23 @@ impl Hydrate for Uuid {
         Ok(Uuid::from_bytes(*array))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use automerge::ObjId;
+    use uuid::Uuid;
+
+    use crate::{hydrate_prop, reconcile_prop};
+
+    #[test]
+    fn round_trip_uuids() {
+        let mut doc = automerge::AutoCommit::new();
+
+        let uuid = Uuid::new_v4();
+        reconcile_prop(&mut doc, ObjId::Root, "secret", uuid).unwrap();
+
+        let hydrated_uuid = hydrate_prop(&doc, ObjId::Root, "secret").unwrap();
+
+        assert_eq!(uuid, hydrated_uuid);
+    }
+}
