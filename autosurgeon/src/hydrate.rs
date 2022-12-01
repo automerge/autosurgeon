@@ -4,6 +4,7 @@ use std::borrow::Cow;
 use crate::{Prop, ReadDoc};
 
 mod impls;
+mod map;
 
 /// A type which can be hydrated from an automerge document
 ///

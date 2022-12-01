@@ -1,3 +1,4 @@
+use automerge as am;
 use std::borrow::Cow;
 
 #[derive(Clone, Debug)]
@@ -45,5 +46,23 @@ impl<'a> From<Cow<'a, str>> for Prop<'a> {
 impl<'a> From<&'a str> for Prop<'a> {
     fn from(s: &'a str) -> Self {
         Self::Key(s.into())
+    }
+}
+
+impl<'a> From<am::Prop> for Prop<'a> {
+    fn from(p: am::Prop) -> Self {
+        match p {
+            am::Prop::Map(k) => Prop::Key(Cow::Owned(k)),
+            am::Prop::Seq(idx) => Prop::Index(idx as u32),
+        }
+    }
+}
+
+impl<'a> From<&'a am::Prop> for Prop<'a> {
+    fn from(p: &'a am::Prop) -> Self {
+        match p {
+            am::Prop::Map(k) => Prop::Key(Cow::Borrowed(k)),
+            am::Prop::Seq(idx) => Prop::Index(*idx as u32),
+        }
     }
 }
