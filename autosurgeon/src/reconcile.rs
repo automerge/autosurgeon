@@ -1230,6 +1230,9 @@ mod tests {
         );
 
         // Let's change alice and reconcile_prop
+        // It should be noted here that we're referring to the _index_ of Alice, not to their Key
+        // If stable object IDs are more important than having the ability to control total ordering in your
+        // Automerge document then you should consider using Maps, as incremental updates do not require indexing
         let alice = Contact {
             name: "alice".to_string(),
             id: 2,
