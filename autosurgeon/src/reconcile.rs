@@ -219,7 +219,7 @@ pub enum LoadKey<K> {
 
 impl<K> LoadKey<K> {
     /// If this is a `LoadKey::Found`, map `f` over the contents
-    pub fn map<L, F: Fn(K) -> L>(self, f: F) -> LoadKey<L> {
+    pub fn map<L, F: FnOnce(K) -> L>(self, f: F) -> LoadKey<L> {
         match self {
             Self::NoKey => LoadKey::NoKey,
             Self::KeyNotFound => LoadKey::KeyNotFound,
