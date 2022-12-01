@@ -432,3 +432,6 @@ mod prop;
 pub use prop::Prop;
 
 pub use autosurgeon_derive::{Hydrate, Reconcile};
+
+#[cfg(feature = "uuid")]
+mod uuid;
