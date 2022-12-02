@@ -123,22 +123,30 @@ pub fn hydrate_prop<'a, D: ReadDoc, H: Hydrate, P: Into<Prop<'a>>, O: AsRef<auto
 ///
 /// The path must be an iterator of properties which start at `obj`. If any of the properties does
 /// not exist this will return `Ok(None)`
-pub fn hydrate_path<'a, D: ReadDoc, H: Hydrate, P: Iterator<Item = Prop<'a>>>(
+pub fn hydrate_path<'a, D: ReadDoc, H: Hydrate, P: IntoIterator<Item = Prop<'a>>>(
     doc: &D,
     obj: &automerge::ObjId,
     path: P,
 ) -> Result<Option<H>, HydrateError> {
-    let Some(mut obj_type) = doc.object_type(obj) else {
+    let mut path = path.into_iter().peekable();
+    let (mut obj, mut prop): (automerge::ObjId, Prop<'_>) = match path.next() {
+        Some(p) => (obj.clone(), p.clone()),
+        None => {
+            if obj == &automerge::ROOT {
+                return Ok(Some(hydrate(doc)?));
+            } else {
+                let Some((parent_obj, parent_prop)) = doc.parents(obj)?.next() else {
+                return Ok(None)
+            };
+                return hydrate_prop(doc, parent_obj, parent_prop);
+            }
+        }
+    };
+    let Some(mut obj_type) = doc.object_type(&obj) else {
         return Ok(None)
     };
-    let mut path = path.peekable();
-    let Some(mut path_elem) = path.peek().cloned() else {
-        return Ok(None)
-    };
-    let mut obj = obj.clone();
-    while let Some(next) = path.next() {
-        path_elem = next;
-        match (&path_elem, obj_type) {
+    while let Some(path_elem) = path.next() {
+        match (&prop, obj_type) {
             (Prop::Key(key), ObjType::Map | ObjType::Table) => {
                 match doc.get(&obj, key.as_ref())? {
                     Some((Value::Object(objtype), id)) => {
@@ -169,8 +177,9 @@ pub fn hydrate_path<'a, D: ReadDoc, H: Hydrate, P: Iterator<Item = Prop<'a>>>(
             }
             _ => return Ok(None),
         }
+        prop = path_elem;
     }
-    hydrate_prop(doc, &obj, path_elem).map(Some)
+    Ok(Some(hydrate_prop::<_, H, _, _>(doc, obj, prop)?))
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -261,14 +270,15 @@ impl<T> HydrateResultExt<Option<T>> for Result<Option<T>, HydrateError> {
 mod tests {
     use super::*;
     use automerge::transaction::Transactable;
+    use std::collections::HashMap;
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq)]
     struct Company {
         name: String,
         employees: Vec<Employee>,
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq)]
     struct Employee {
         name: String,
         number: u64,
@@ -338,6 +348,104 @@ mod tests {
                     name: "Satya Nadella".to_string(),
                     number: 1,
                 }],
+            }
+        );
+    }
+
+    #[test]
+    fn basic_hydrate_path() {
+        let mut doc = automerge::AutoCommit::new();
+        let companies = doc
+            .put_object(automerge::ROOT, "companies", ObjType::Map)
+            .unwrap();
+        let ms = doc
+            .put_object(&companies, "Microsoft", ObjType::Map)
+            .unwrap();
+        doc.put(&ms, "name", "Microsoft").unwrap();
+        let employees = doc.put_object(&ms, "employees", ObjType::List).unwrap();
+        let emp = doc.insert_object(&employees, 0, ObjType::Map).unwrap();
+        doc.put(&emp, "name", "Satya Nadella").unwrap();
+        doc.put(&emp, "number", 1_u64).unwrap();
+
+        let expected_ms = Company {
+            name: "Microsoft".to_string(),
+            employees: vec![Employee {
+                name: "Satya Nadella".to_string(),
+                number: 1,
+            }],
+        };
+        let result: HashMap<String, Company> =
+            hydrate_path(&doc, &automerge::ROOT, vec!["companies".into()].into_iter())
+                .unwrap()
+                .unwrap();
+        let mut expected = HashMap::new();
+        expected.insert("Microsoft".to_string(), expected_ms.clone());
+        assert_eq!(expected, result);
+
+        let result: Company = hydrate_path(&doc, &companies, vec!["Microsoft".into()].into_iter())
+            .unwrap()
+            .unwrap();
+        assert_eq!(result, expected_ms);
+
+        let satya: Employee = hydrate_path(
+            &doc,
+            &companies,
+            vec!["Microsoft".into(), "employees".into(), 0_usize.into()].into_iter(),
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(satya, expected_ms.employees[0]);
+
+        let name_from_comp: String = hydrate_path(
+            &doc,
+            &companies,
+            vec![
+                "Microsoft".into(),
+                "employees".into(),
+                0_usize.into(),
+                "name".into(),
+            ]
+            .into_iter(),
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(name_from_comp, "Satya Nadella");
+    }
+
+    #[test]
+    fn hydrate_path_root() {
+        let mut doc = automerge::AutoCommit::new();
+        doc.put(&automerge::ROOT, "name", "Moist von Lipwig")
+            .unwrap();
+        doc.put(&automerge::ROOT, "number", 1_u64).unwrap();
+        let moist = hydrate_path::<_, Employee, _>(&doc, &automerge::ROOT, vec![].into_iter())
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            moist,
+            Employee {
+                name: "Moist von Lipwig".to_string(),
+                number: 1,
+            }
+        );
+    }
+
+    #[test]
+    fn hydrate_empty_path() {
+        let mut doc = automerge::AutoCommit::new();
+        let moist = doc
+            .put_object(automerge::ROOT, "moist", ObjType::Map)
+            .unwrap();
+        doc.put(&moist, "name", "Moist von Lipwig").unwrap();
+        doc.put(&moist, "number", 1_u64).unwrap();
+        let moist = hydrate_path::<_, Employee, _>(&doc, &moist, vec![].into_iter())
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            moist,
+            Employee {
+                name: "Moist von Lipwig".to_string(),
+                number: 1,
             }
         );
     }

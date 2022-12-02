@@ -205,7 +205,8 @@ mod tests {
             obj: &automerge::ObjId,
             prop: crate::prop::Prop<'_>,
         ) -> Result<crate::reconcile::LoadKey<Self::Key<'a>>, crate::ReconcileError> {
-            crate::reconcile::hydrate_key(doc, obj, prop, "id".into())
+            let result = crate::reconcile::hydrate_key(doc, obj, prop, "id".into())?;
+            Ok(result)
         }
 
         fn key(&self) -> LoadKey<Self::Key<'_>> {

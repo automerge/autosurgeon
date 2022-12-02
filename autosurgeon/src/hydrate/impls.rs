@@ -1,7 +1,6 @@
-use std::borrow::Cow;
-
 use super::{hydrate_prop, Hydrate, HydrateError};
 use crate::ReadDoc;
+use std::borrow::Cow;
 
 impl Hydrate for String {
     fn hydrate_string(s: &'_ str) -> Result<Self, HydrateError> {

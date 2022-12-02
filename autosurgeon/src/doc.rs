@@ -4,6 +4,9 @@ use automerge::{self as am, AutomergeError, ObjId, Value};
 
 /// An abstraction over the different ways of reading an automerge document
 pub trait ReadDoc {
+    type Parents<'a>: Iterator<Item = (am::ObjId, am::Prop)>
+    where
+        Self: 'a;
     fn get_heads(&self) -> Vec<automerge::ChangeHash>;
     fn get<P: Into<am::Prop>>(
         &self,
@@ -27,6 +30,7 @@ pub trait ReadDoc {
     fn length<O: AsRef<ObjId>>(&self, obj: O) -> usize;
 
     fn text<O: AsRef<ObjId>>(&self, obj: O) -> Result<String, AutomergeError>;
+    fn parents<O: AsRef<ObjId>>(&self, obj: O) -> Result<Self::Parents<'_>, AutomergeError>;
 }
 
 /// An abstraction over the read + write operations we need from an automerge document
@@ -81,6 +85,7 @@ pub trait Doc: ReadDoc {
 }
 
 impl ReadDoc for am::AutoCommit {
+    type Parents<'a> = am::Parents<'a>;
     fn get_heads(&self) -> Vec<am::ChangeHash> {
         am::transaction::Transactable::base_heads(self)
     }
@@ -119,10 +124,15 @@ impl ReadDoc for am::AutoCommit {
 
     fn text<O: AsRef<ObjId>>(&self, obj: O) -> Result<String, AutomergeError> {
         am::transaction::Transactable::text(self, obj)
+    }
+
+    fn parents<O: AsRef<ObjId>>(&self, obj: O) -> Result<Self::Parents<'_>, AutomergeError> {
+        am::transaction::Transactable::parents(self, obj)
     }
 }
 
 impl<'a, Obs: am::transaction::Observation> ReadDoc for am::transaction::Transaction<'a, Obs> {
+    type Parents<'b> = am::Parents<'b> where Self: 'b;
     fn get_heads(&self) -> Vec<am::ChangeHash> {
         am::transaction::Transactable::base_heads(self)
     }
@@ -162,9 +172,14 @@ impl<'a, Obs: am::transaction::Observation> ReadDoc for am::transaction::Transac
     fn text<O: AsRef<ObjId>>(&self, obj: O) -> Result<String, AutomergeError> {
         am::transaction::Transactable::text(self, obj)
     }
+
+    fn parents<O: AsRef<ObjId>>(&self, obj: O) -> Result<Self::Parents<'_>, AutomergeError> {
+        am::transaction::Transactable::parents(self, obj)
+    }
 }
 
 impl ReadDoc for am::Automerge {
+    type Parents<'a> = am::Parents<'a>;
     fn get_heads(&self) -> Vec<am::ChangeHash> {
         am::Automerge::get_heads(self)
     }
@@ -203,6 +218,10 @@ impl ReadDoc for am::Automerge {
 
     fn text<O: AsRef<ObjId>>(&self, obj: O) -> Result<String, AutomergeError> {
         am::Automerge::text(self, obj)
+    }
+
+    fn parents<O: AsRef<ObjId>>(&self, obj: O) -> Result<Self::Parents<'_>, AutomergeError> {
+        am::Automerge::parents(self, obj)
     }
 }
 
