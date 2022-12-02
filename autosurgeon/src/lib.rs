@@ -15,6 +15,11 @@
 //! receive concurrent changes from other documents you will need to re-`hydrate` your data
 //! structures from your document. This will be addressed in future versions.
 //!
+//! ## Feature Flags
+//!
+//! * `uuid` - Includes implementations of `Reconcile` and `Hydrate` for the [`Uuid`](https://docs.rs/uuid/latest/uuid/) crate which will
+//! reconcile to a [`automerge::ScalarValue::Bytes`]
+//!
 //! ## Example
 //!
 //! Imagine we are writing a program to interact with a document containing some contact details.
