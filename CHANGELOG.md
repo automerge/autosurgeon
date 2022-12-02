@@ -1,3 +1,9 @@
+## `0.2.1`
+
+* Add `Hydrate` for HashMap and BTreeMap
+* Fix hydrate_path failing to hydrate some items correctly
+* Add implementations of Reconcile and Hydrate for Uuid behind the `uuid` feature flag
+
 ## `0.2.0`
 
 * **BREAKING** Remove implementation of `Hydrate` for `Vec<u8>`

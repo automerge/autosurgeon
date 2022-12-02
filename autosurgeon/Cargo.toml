@@ -1,7 +1,7 @@
 [package]
 name = "autosurgeon"
 description = "A library for working with data in automerge documents"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 authors = ["Alex Good <alex@memoryandthought.me>"]
 license = "MIT"
@@ -12,7 +12,7 @@ repository = "https://github.com/alexjg/autosurgeon"
 automerge = { version = "^0.2" }
 thiserror = "1.0.37"
 smol_str = { version = "^0.1.21" }
-autosurgeon-derive = { path = "../autosurgeon-derive", version = "0.2.0" }
+autosurgeon-derive = { path = "../autosurgeon-derive", version = "0.2.1" }
 similar = "2.2.1"
 uuid = { version = "1.2.2", optional = true }
 
