@@ -417,6 +417,10 @@
 //! }
 //! ```
 
+#[doc = include_str!("../../README.md")]
+#[cfg(doctest)]
+pub struct ReadmeDoctests;
+
 mod counter;
 pub use counter::Counter;
 pub mod bytes;
