@@ -419,7 +419,7 @@ impl<'a> EnumKey<'a> {
         let variant_defs = self
             .variants
             .iter()
-            .map(|v| v.key_type_variant_def(&key_lifetime));
+            .filter_map(|v| v.key_type_variant_def(&key_lifetime));
         let name = self.type_name();
         let name_with_lifetime = if self.has_lifetime() {
             quote! {#name<#key_lifetime>}

@@ -498,3 +498,10 @@ mod enumkeyvisibility {
         TheOtherThing,
     }
 }
+
+// Reproduce https://github.com/alexjg/autosurgeon/issues/9
+#[derive(Reconcile)]
+pub enum Ports {
+    Range(u16, u16),
+    Collection(Vec<u16>),
+}
