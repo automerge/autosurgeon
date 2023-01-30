@@ -4,10 +4,11 @@ use automerge::{self as am, AutomergeError, ObjId, Value};
 
 /// An abstraction over the different ways of reading an automerge document
 pub trait ReadDoc {
-    type Parents<'a>: Iterator<Item = (am::ObjId, am::Prop)>
+    type Parents<'a>: Iterator<Item = am::Parent>
     where
         Self: 'a;
     fn get_heads(&self) -> Vec<automerge::ChangeHash>;
+
     fn get<P: Into<am::Prop>>(
         &self,
         obj: &ObjId,
@@ -95,11 +96,13 @@ impl ReadDoc for am::AutoCommit {
         obj: &ObjId,
         prop: P,
     ) -> Result<Option<(Value<'_>, ObjId)>, AutomergeError> {
-        am::transaction::Transactable::get(self, obj, prop)
+        am::ReadDoc::get(self, obj, prop)
     }
 
     fn object_type<O: AsRef<ObjId>>(&self, obj: O) -> Option<am::ObjType> {
-        am::transaction::Transactable::object_type(self, obj)
+        am::ReadDoc::object_type(self, obj)
+            .map(Some)
+            .unwrap_or(None)
     }
 
     fn map_range<O: AsRef<ObjId>, R: RangeBounds<String>>(
@@ -107,7 +110,7 @@ impl ReadDoc for am::AutoCommit {
         obj: O,
         range: R,
     ) -> am::MapRange<'_, R> {
-        am::transaction::Transactable::map_range(self, obj, range)
+        am::ReadDoc::map_range(self, obj, range)
     }
 
     fn list_range<O: AsRef<ObjId>, R: RangeBounds<usize>>(
@@ -115,19 +118,19 @@ impl ReadDoc for am::AutoCommit {
         obj: O,
         range: R,
     ) -> am::ListRange<'_, R> {
-        am::transaction::Transactable::list_range(self, obj, range)
+        am::ReadDoc::list_range(self, obj, range)
     }
 
     fn length<O: AsRef<ObjId>>(&self, obj: O) -> usize {
-        am::transaction::Transactable::length(self, obj)
+        am::ReadDoc::length(self, obj)
     }
 
     fn text<O: AsRef<ObjId>>(&self, obj: O) -> Result<String, AutomergeError> {
-        am::transaction::Transactable::text(self, obj)
+        am::ReadDoc::text(self, obj)
     }
 
     fn parents<O: AsRef<ObjId>>(&self, obj: O) -> Result<Self::Parents<'_>, AutomergeError> {
-        am::transaction::Transactable::parents(self, obj)
+        am::ReadDoc::parents(self, obj)
     }
 }
 
@@ -142,11 +145,13 @@ impl<'a, Obs: am::transaction::Observation> ReadDoc for am::transaction::Transac
         obj: &ObjId,
         prop: P,
     ) -> Result<Option<(Value<'_>, ObjId)>, AutomergeError> {
-        am::transaction::Transactable::get(self, obj, prop)
+        am::ReadDoc::get(self, obj, prop)
     }
 
     fn object_type<O: AsRef<ObjId>>(&self, obj: O) -> Option<am::ObjType> {
-        am::transaction::Transactable::object_type(self, obj)
+        am::ReadDoc::object_type(self, obj)
+            .map(Some)
+            .unwrap_or(None)
     }
 
     fn map_range<O: AsRef<ObjId>, R: RangeBounds<String>>(
@@ -154,7 +159,7 @@ impl<'a, Obs: am::transaction::Observation> ReadDoc for am::transaction::Transac
         obj: O,
         range: R,
     ) -> am::MapRange<'_, R> {
-        am::transaction::Transactable::map_range(self, obj, range)
+        am::ReadDoc::map_range(self, obj, range)
     }
 
     fn list_range<O: AsRef<ObjId>, R: RangeBounds<usize>>(
@@ -162,19 +167,19 @@ impl<'a, Obs: am::transaction::Observation> ReadDoc for am::transaction::Transac
         obj: O,
         range: R,
     ) -> am::ListRange<'_, R> {
-        am::transaction::Transactable::list_range(self, obj, range)
+        am::ReadDoc::list_range(self, obj, range)
     }
 
     fn length<O: AsRef<ObjId>>(&self, obj: O) -> usize {
-        am::transaction::Transactable::length(self, obj)
+        am::ReadDoc::length(self, obj)
     }
 
     fn text<O: AsRef<ObjId>>(&self, obj: O) -> Result<String, AutomergeError> {
-        am::transaction::Transactable::text(self, obj)
+        am::ReadDoc::text(self, obj)
     }
 
     fn parents<O: AsRef<ObjId>>(&self, obj: O) -> Result<Self::Parents<'_>, AutomergeError> {
-        am::transaction::Transactable::parents(self, obj)
+        am::ReadDoc::parents(self, obj)
     }
 }
 
@@ -189,11 +194,13 @@ impl ReadDoc for am::Automerge {
         obj: &ObjId,
         prop: P,
     ) -> Result<Option<(Value<'_>, ObjId)>, AutomergeError> {
-        am::Automerge::get(self, obj, prop)
+        am::ReadDoc::get(self, obj, prop)
     }
 
     fn object_type<O: AsRef<ObjId>>(&self, obj: O) -> Option<am::ObjType> {
-        am::Automerge::object_type(self, obj)
+        am::ReadDoc::object_type(self, obj)
+            .map(Some)
+            .unwrap_or(None)
     }
 
     fn map_range<O: AsRef<ObjId>, R: RangeBounds<String>>(
@@ -201,7 +208,7 @@ impl ReadDoc for am::Automerge {
         obj: O,
         range: R,
     ) -> am::MapRange<'_, R> {
-        am::Automerge::map_range(self, obj, range)
+        am::ReadDoc::map_range(self, obj, range)
     }
 
     fn list_range<O: AsRef<ObjId>, R: RangeBounds<usize>>(
@@ -209,19 +216,19 @@ impl ReadDoc for am::Automerge {
         obj: O,
         range: R,
     ) -> am::ListRange<'_, R> {
-        am::Automerge::list_range(self, obj, range)
+        am::ReadDoc::list_range(self, obj, range)
     }
 
     fn length<O: AsRef<ObjId>>(&self, obj: O) -> usize {
-        am::Automerge::length(self, obj)
+        am::ReadDoc::length(self, obj)
     }
 
     fn text<O: AsRef<ObjId>>(&self, obj: O) -> Result<String, AutomergeError> {
-        am::Automerge::text(self, obj)
+        am::ReadDoc::text(self, obj)
     }
 
     fn parents<O: AsRef<ObjId>>(&self, obj: O) -> Result<Self::Parents<'_>, AutomergeError> {
-        am::Automerge::parents(self, obj)
+        am::ReadDoc::parents(self, obj)
     }
 }
 

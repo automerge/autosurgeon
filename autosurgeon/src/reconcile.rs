@@ -1003,7 +1003,7 @@ mod tests {
         reconcile(&mut doc, &bob).unwrap();
 
         assert_doc!(
-            doc.document(),
+            &doc,
             map! {
                 "name" => { "bob" },
                 "id" => { 1_u64 },
