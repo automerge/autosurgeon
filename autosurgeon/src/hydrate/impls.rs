@@ -109,3 +109,13 @@ impl<'a, T: Hydrate + Clone> Hydrate for Cow<'a, T> {
         Ok(Cow::Owned(T::hydrate(doc, obj, prop)?))
     }
 }
+
+impl<T: Hydrate> Hydrate for Box<T> {
+    fn hydrate<'a, D: ReadDoc>(
+        doc: &D,
+        obj: &automerge::ObjId,
+        prop: crate::Prop<'a>,
+    ) -> Result<Self, HydrateError> {
+        Ok(Box::new(T::hydrate(doc, obj, prop)?))
+    }
+}
