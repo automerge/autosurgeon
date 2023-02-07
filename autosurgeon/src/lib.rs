@@ -384,13 +384,13 @@
 //!
 //! #### `with=`
 //!
-//! The value of this attribute must be the name of a module wich has both a `reconcile` function
+//! The value of this attribute must be the name of a module which has both a `reconcile` function
 //! and a `hydrate` function, with the same signatures as [`Reconcile::reconcile`] and
 //! [`Hydrate::hydrate`] respectively.
 //!
 //! ```rust
 //! # use autosurgeon::{Reconcile, Hydrate, ReadDoc, Prop, HydrateError};
-//! #[derive(Hydrate)]
+//! #[derive(Hydrate, Reconcile)]
 //! struct File {
 //!     #[autosurgeon(with="autosurgeon_path")]
 //!     path: std::path::PathBuf,

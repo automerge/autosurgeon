@@ -174,7 +174,7 @@ pub trait SeqReconciler {
     /// Delete an index from the sequence
     fn delete(&mut self, index: usize) -> Result<(), Self::Error>;
 
-    /// Get the current length of the sequnce
+    /// Get the current length of the sequence
     fn len(&self) -> Result<usize, Self::Error>;
 
     fn is_empty(&self) -> Result<bool, Self::Error> {
@@ -269,7 +269,7 @@ impl<K> LoadKey<K> {
 ///     fn reconcile<R: Reconciler>(&self, mut reconciler: R) -> Result<(), R::Error> {
 ///         let mut m = reconciler.map()?;
 ///         m.put("id", &self.id)?;
-///         m.put("name", &self.id)?;
+///         m.put("name", &self.name)?;
 ///         Ok(())
 ///     }
 ///
@@ -298,7 +298,7 @@ pub trait Reconcile {
 
     /// Reconcile this item with the document
     ///
-    /// See the documentation of `reconciler` for more details. Typically though there are two
+    /// See the documentation of [`Reconciler`] for more details. Typically though there are two
     /// cases:
     ///
     /// 1. `R` reconciles to a primitive value, in which case you directly call one of the
@@ -306,7 +306,7 @@ pub trait Reconcile {
     /// 2. `R` reconciles to a composite data structure - either a map, list, counter, or text in
     ///    which case you obtain the nested reconciler using [`Reconciler::map`],
     ///    [`Reconciler::seq`], [`Reconciler::counter`] or [`Reconciler::text`] respectively and
-    ///    then proceed with reconciliation using then ested reconciler
+    ///    then proceed with reconciliation using then nested reconciler
     fn reconcile<R: Reconciler>(&self, reconciler: R) -> Result<(), R::Error>;
 
     /// Hydrate the key for this Object
@@ -376,7 +376,7 @@ pub trait Reconcile {
 pub enum ReconcileError {
     #[error(transparent)]
     Automerge(#[from] automerge::AutomergeError),
-    #[error("the top level object must reconile to a map")]
+    #[error("the top level object must reconcile to a map")]
     TopLevelNotMap,
     #[error(transparent)]
     StaleHeads(#[from] StaleHeads),
@@ -845,7 +845,7 @@ impl<'a, D: Doc> TextReconciler for InText<'a, D> {
 /// Reconcile `value` with `doc`
 ///
 /// This will throw an error if the implementation of `Reconcile` for `R` does anything except call
-/// `Reconciler::map` because only a map is a valid object for the root of an automerge document.
+/// `Reconciler::map` because only a map is a valid object for the root of an `automerge` document.
 pub fn reconcile<R: Reconcile, D: Doc>(doc: &mut D, value: R) -> Result<(), ReconcileError> {
     let reconciler = RootReconciler {
         heads: doc.get_heads(),
@@ -857,7 +857,7 @@ pub fn reconcile<R: Reconcile, D: Doc>(doc: &mut D, value: R) -> Result<(), Reco
 
 /// Reconcile `value` with `(obj, prop)` in `doc`
 ///
-/// Sometimes you want to update a particular object within an automerge document
+/// This is useful when you want to update a particular object within an `automerge` document e.g.
 ///
 /// ```rust
 /// # use automerge::{ObjType, transaction::Transactable};
@@ -896,7 +896,7 @@ pub fn reconcile_prop<'a, D: Doc, R: Reconcile, O: AsRef<automerge::ObjId>, P: I
 /// Reconcile into a new index in a sequence
 ///
 /// This is useful when you specifically want to insert an object which does not implement
-/// `Reconcile::key` into a sequence
+/// `Reconcile::key` into a sequence.
 pub fn reconcile_insert<R: Reconcile>(
     doc: &mut automerge::AutoCommit,
     obj: automerge::ObjId,
@@ -917,7 +917,7 @@ pub fn reconcile_insert<R: Reconcile>(
 /// Hydrate the key `inner` from inside the object `outer`
 ///
 /// This is useful when you are attempting to hydrate the key of an object. Imagine you have a
-/// structure like this
+/// structure like this,
 ///
 /// ```json
 /// {
