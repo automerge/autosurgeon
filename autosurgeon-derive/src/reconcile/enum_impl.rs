@@ -769,7 +769,7 @@ fn enum_with_fields_variant<F: VariantWithFields>(
             {
                 #(#field_defs),*
             }
-            impl #impl_generics Reconcile for #visitor_name #ty_generics {
+            impl #impl_generics autosurgeon::Reconcile for #visitor_name #ty_generics {
                 type Key<'k> = autosurgeon::reconcile::NoKey;
                 fn reconcile<__R234: autosurgeon::Reconciler>(&self, mut #inner_reconciler_ident: __R234) -> Result<(), __R234::Error> {
                     #inner_reconcile
