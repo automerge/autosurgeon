@@ -17,10 +17,10 @@ fn reconcile_userid<R: Reconciler>(id: &UserId, reconciler: R) -> Result<(), R::
     id.0.reconcile(reconciler)
 }
 
-fn hydrate_userid<'a, D: ReadDoc>(
+fn hydrate_userid<D: ReadDoc>(
     doc: &D,
     obj: &automerge::ObjId,
-    prop: Prop<'a>,
+    prop: Prop<'_>,
 ) -> Result<UserId, HydrateError> {
     Ok(UserId(String::hydrate(doc, obj, prop)?))
 }

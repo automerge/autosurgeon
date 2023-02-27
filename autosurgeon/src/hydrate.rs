@@ -22,10 +22,10 @@ mod map;
 /// }
 /// ```
 pub trait Hydrate: Sized {
-    fn hydrate<'a, D: ReadDoc>(
+    fn hydrate<D: ReadDoc>(
         doc: &D,
         obj: &automerge::ObjId,
-        prop: Prop<'a>,
+        prop: Prop<'_>,
     ) -> Result<Self, HydrateError> {
         match doc.get(obj, &prop)? {
             None => Self::hydrate_none(),
