@@ -153,7 +153,7 @@ pub trait MapReconciler {
             }
         }
         for k in &delenda {
-            self.delete(&k)?;
+            self.delete(k)?;
         }
         Ok(())
     }
