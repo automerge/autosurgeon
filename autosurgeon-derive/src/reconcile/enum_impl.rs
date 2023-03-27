@@ -71,7 +71,6 @@ impl<'a> Variant<'a> {
         &self,
         reconciler_ident: &syn::Ident,
         generics: &syn::Generics,
-        delenda: &[String],
     ) -> Result<proc_macro2::TokenStream, DeriveError> {
         match self {
             Self::Unit { name } => {
@@ -104,45 +103,28 @@ impl<'a> Variant<'a> {
                                 #reconcile_with::key(self.0)
                             }
                         }
+                        m.retain(|k, _| k == #name_string)?;
                         m.put(#name_string, ___EnumNewtypeVisitor(&v))?;
                     }
                 }).unwrap_or_else(|| quote!{
+                    m.retain(|k, _| k == #name_string)?;
                     m.put(#name_string, v)?;
                 });
-                let deletions = delenda
-                    .iter()
-                    .filter_map(|key| (*key != name_string).then(|| quote!(m.delete(#key)?;)));
                 Ok(quote! {
                      Self::#name(v) => {
                         use autosurgeon::reconcile::MapReconciler;
                         let mut m = #reconciler_ident.map()?;
                         #reconciler
-                        #(#deletions)*
                         Ok(())
                     }
                 })
             }
             Self::Unnamed { name, fields } => {
-                enum_with_fields_variant(reconciler_ident, generics, name, *fields, delenda)
+                enum_with_fields_variant(reconciler_ident, generics, name, *fields)
             }
             Self::Named { name, fields } => {
-                enum_with_fields_variant(reconciler_ident, generics, name, *fields, delenda)
+                enum_with_fields_variant(reconciler_ident, generics, name, *fields)
             }
-        }
-    }
-
-    /// Returns the keys that must be deleted from the corresponding map when
-    /// switching from this variant to another one that is represented by
-    /// a map.
-    ///
-    /// Since unit variants are represented as strings rather than maps, they
-    /// lack any delendum.
-    fn delendum(&self) -> Option<String> {
-        match self {
-            Variant::Unit { .. } => None,
-            Variant::NewType { name, .. }
-            | Variant::Named { name, .. }
-            | Variant::Unnamed { name, .. } => Some(name.to_string()),
         }
     }
 }
@@ -555,14 +537,10 @@ pub(super) fn enum_impl(
         .iter()
         .map(Variant::try_from)
         .collect::<Result<Vec<_>, _>>()?;
-    let delenda = variants
-        .iter()
-        .filter_map(Variant::delendum)
-        .collect::<Vec<_>>();
     let matches = variants.iter().try_fold::<_, _, Result<_, DeriveError>>(
         Vec::new(),
         |mut results, v| {
-            results.push(v.match_arm(reconciler_ident, generics, &delenda)?);
+            results.push(v.match_arm(reconciler_ident, generics)?);
             Ok(results)
         },
     )?;
@@ -758,7 +736,6 @@ fn enum_with_fields_variant<F: VariantWithFields>(
     generics: &syn::Generics,
     name: &syn::Ident,
     variant: F,
-    delenda: &[String],
 ) -> Result<TokenStream, DeriveError> {
     let variant_name_str = name.to_string();
     let visitor_name = format_ident!("{}ReconcileVisitor", name);
@@ -790,10 +767,6 @@ fn enum_with_fields_variant<F: VariantWithFields>(
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let variant_matcher = variant.variant_matcher(name, matchers);
 
-    let deletions = delenda
-        .iter()
-        .filter_map(|key| (*key != variant_name_str).then(|| quote!(m.delete(#key)?;)));
-
     Ok(quote! {
         #variant_matcher => {
             use autosurgeon::reconcile::{Reconciler, MapReconciler};
@@ -812,8 +785,8 @@ fn enum_with_fields_variant<F: VariantWithFields>(
                 #(#constructors),*
             };
             let mut m = #reconciler_ident.map()?;
+            m.retain(|k, _| k == #variant_name_str)?;
             m.put(#variant_name_str, v)?;
-            #(#deletions)*
             Ok(())
         }
     })
