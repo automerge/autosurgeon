@@ -138,6 +138,25 @@ pub trait MapReconciler {
         self.put(prop, value)?;
         Ok(())
     }
+
+    /// Remove any entries that do not satisfy the given predicate.
+    fn retain<F: FnMut(&str, automerge::Value) -> bool>(
+        &mut self,
+        mut pred: F,
+    ) -> Result<(), Self::Error> {
+        // TODO: a more efficient implementation might be possible with
+        // an addition to Automerge
+        let mut delenda = Vec::new();
+        for (k, v) in self.entries() {
+            if !pred(k, v) {
+                delenda.push(k.to_string());
+            }
+        }
+        for k in &delenda {
+            self.delete(k)?;
+        }
+        Ok(())
+    }
 }
 
 /// A node in the document which is an `automerge::List`

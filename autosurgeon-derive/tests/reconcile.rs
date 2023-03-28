@@ -487,6 +487,29 @@ fn reconcile_tuple_enum_key() {
     );
 }
 
+#[test]
+fn reconcile_between_enum_variants() {
+    let mut doc = automerge::AutoCommit::new();
+    let temp = TempReading::Celsius("one".to_string(), 1.2);
+    reconcile_prop(&mut doc, automerge::ROOT, "temp", &temp).unwrap();
+
+    let temp = TempReading::Fahrenheit("three".to_string(), 6.7);
+    reconcile_prop(&mut doc, automerge::ROOT, "temp", &temp).unwrap();
+
+    assert_doc!(
+        doc.document(),
+        map! {
+            "temp" => { map! {
+                    "Fahrenheit" => { list! {
+                        { "three" },
+                        { 6.7_f64 },
+                    } }
+                }
+            }
+        }
+    );
+}
+
 mod enumkeyvisibility {
     use autosurgeon::Reconcile;
 
