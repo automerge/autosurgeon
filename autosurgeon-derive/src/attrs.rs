@@ -36,9 +36,9 @@ impl Container {
 
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) enum ReconcileWith {
-    Function { function_name: syn::Ident },
-    Module { module_name: syn::Ident },
-    With { module_name: syn::Ident },
+    Function { function_name: syn::Path },
+    Module { module_name: syn::Path },
+    With { module_name: syn::Path },
 }
 
 impl ReconcileWith {
@@ -54,7 +54,12 @@ impl ReconcileWith {
                     return Err(error::InvalidReconcileWith::MultipleReconcile);
                 }
                 match &kv.lit {
-                    syn::Lit::Str(s) => function_name = Some(s.value()),
+                    syn::Lit::Str(s) => {
+                        function_name =
+                            Some(s.parse().map_err(|_| {
+                                error::InvalidReconcileWith::ReconcileNotPath(s.span())
+                            })?)
+                    }
                     other => {
                         return Err(error::InvalidReconcileWith::ReconcileNotString(
                             other.span(),
@@ -67,7 +72,12 @@ impl ReconcileWith {
                     return Err(error::InvalidReconcileWith::MultipleReconcileWith);
                 }
                 match &kv.lit {
-                    syn::Lit::Str(s) => module_name = Some(s.value()),
+                    syn::Lit::Str(s) => {
+                        module_name =
+                            Some(s.parse().map_err(|_| {
+                                error::InvalidReconcileWith::ReconcileNotPath(s.span())
+                            })?)
+                    }
                     other => {
                         return Err(error::InvalidReconcileWith::ReconcileNotString(
                             other.span(),
@@ -80,7 +90,12 @@ impl ReconcileWith {
                     return Err(error::InvalidReconcileWith::MultipleWith);
                 }
                 match &kv.lit {
-                    syn::Lit::Str(s) => with_name = Some(s.value()),
+                    syn::Lit::Str(s) => {
+                        with_name = Some(
+                            s.parse()
+                                .map_err(|_| error::InvalidReconcileWith::WithNotPath(s.span()))?,
+                        )
+                    }
                     other => {
                         return Err(error::InvalidReconcileWith::WithNotString(other.span()));
                     }
@@ -92,17 +107,13 @@ impl ReconcileWith {
                 return Err(error::InvalidReconcileWith::ReconcileAndReconcileWith);
             } else {
                 return Ok(Some(Self::With {
-                    module_name: syn::Ident::new(&with_name, Span::call_site()),
+                    module_name: with_name,
                 }));
             }
         };
         match (module_name, function_name) {
-            (Some(module_name), None) => Ok(Some(Self::Module {
-                module_name: syn::Ident::new(&module_name, Span::mixed_site()),
-            })),
-            (None, Some(function_name)) => Ok(Some(Self::Function {
-                function_name: syn::Ident::new(&function_name, Span::mixed_site()),
-            })),
+            (Some(module_name), None) => Ok(Some(Self::Module { module_name })),
+            (None, Some(function_name)) => Ok(Some(Self::Function { function_name })),
             (None, None) => Ok(None),
             (Some(_), Some(_)) => Err(error::InvalidReconcileWith::ReconcileAndReconcileWith),
         }
@@ -178,8 +189,8 @@ impl ReconcileWith {
 
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) enum HydrateWith {
-    Function { function_name: syn::Ident },
-    Module { module_name: syn::Ident },
+    Function { function_name: syn::Path },
+    Module { module_name: syn::Path },
 }
 
 impl HydrateWith {
@@ -194,7 +205,12 @@ impl HydrateWith {
                     return Err(error::InvalidHydrateWith::MultipleHydrate);
                 }
                 match &kv.lit {
-                    syn::Lit::Str(s) => function_name = Some(s.value()),
+                    syn::Lit::Str(s) => {
+                        function_name = Some(
+                            s.parse()
+                                .map_err(|_| error::InvalidHydrateWith::HydrateNotPath(s.span()))?,
+                        )
+                    }
                     other => return Err(error::InvalidHydrateWith::HydrateNotString(other.span())),
                 }
             }
@@ -203,18 +219,19 @@ impl HydrateWith {
                     return Err(error::InvalidHydrateWith::MultipleWith);
                 }
                 match &kv.lit {
-                    syn::Lit::Str(s) => with_name = Some(s.value()),
+                    syn::Lit::Str(s) => {
+                        with_name = Some(
+                            s.parse()
+                                .map_err(|_| error::InvalidHydrateWith::WithNotPath(s.span()))?,
+                        )
+                    }
                     other => return Err(error::InvalidHydrateWith::HydrateNotString(other.span())),
                 }
             }
         }
         let hydrate_with = match (function_name, with_name) {
-            (Some(function_name), None) => Self::Function {
-                function_name: syn::Ident::new(&function_name, Span::call_site()),
-            },
-            (None, Some(w)) => Self::Module {
-                module_name: syn::Ident::new(&w, Span::call_site()),
-            },
+            (Some(function_name), None) => Self::Function { function_name },
+            (None, Some(w)) => Self::Module { module_name: w },
             (Some(_), Some(_)) => return Err(error::InvalidHydrateWith::HydrateAndWith),
             (None, None) => return Ok(None),
         };
@@ -400,6 +417,10 @@ pub(crate) mod error {
         ReconcileNotString(Span),
         #[error("the value of 'with=' must be a string")]
         WithNotString(Span),
+        #[error("the value of a 'reconcile=' must be a string representing a path")]
+        ReconcileNotPath(Span),
+        #[error("the value of 'with=' must be a string representing a path")]
+        WithNotPath(Span),
         #[error("you cann only use one of 'reconcile=', 'reconcile_with=', and 'with='")]
         ReconcileAndReconcileWith,
     }
@@ -412,6 +433,8 @@ pub(crate) mod error {
                 Self::MultipleWith => None,
                 Self::ReconcileNotString(s) => Some(*s),
                 Self::WithNotString(s) => Some(*s),
+                Self::ReconcileNotPath(s) => Some(*s),
+                Self::WithNotPath(s) => Some(*s),
                 Self::ReconcileAndReconcileWith => None,
             }
         }
@@ -427,6 +450,10 @@ pub(crate) mod error {
         HydrateAndWith,
         #[error("the value of a 'hydrate=' or 'with=' must be a string")]
         HydrateNotString(Span),
+        #[error("the value of a 'reconcile=' must be a string representing a path")]
+        HydrateNotPath(Span),
+        #[error("the value of 'with=' must be a string representing a path")]
+        WithNotPath(Span),
     }
 
     impl InvalidHydrateWith {
@@ -436,6 +463,8 @@ pub(crate) mod error {
                 Self::MultipleWith => None,
                 Self::HydrateAndWith => None,
                 Self::HydrateNotString(s) => Some(*s),
+                Self::HydrateNotPath(s) => Some(*s),
+                Self::WithNotPath(s) => Some(*s),
             }
         }
     }
