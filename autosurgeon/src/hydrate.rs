@@ -188,6 +188,8 @@ pub enum HydrateError {
     Automerge(#[from] automerge::AutomergeError),
     #[error("unexpected {0}")]
     Unexpected(Unexpected),
+    #[error("parse error: {0}")]
+    Parse(Box<dyn std::error::Error>),
 }
 
 impl HydrateError {
@@ -262,6 +264,7 @@ impl<T> HydrateResultExt<Option<T>> for Result<Option<T>, HydrateError> {
             Ok(v) => Ok(v),
             Err(HydrateError::Unexpected(_)) => Ok(None),
             Err(HydrateError::Automerge(e)) => Err(e),
+            Err(HydrateError::Parse(_)) => Ok(None),
         }
     }
 }

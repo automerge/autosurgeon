@@ -1,6 +1,6 @@
 use automerge::{transaction::Transactable, ObjType};
 use automerge_test::{assert_doc, list, map};
-use autosurgeon::{hydrate_prop, reconcile_prop, Hydrate, Reconcile};
+use autosurgeon::{hydrate, hydrate_prop, reconcile, reconcile_prop, Hydrate, Reconcile};
 
 struct UserId(String);
 
@@ -100,4 +100,41 @@ fn with_on_tuplestruct() {
     uid.0 = UserId("two".to_string());
     reconcile_prop(&mut doc, automerge::ROOT, "userid", &uid).unwrap();
     assert_doc!(doc.document(), map! {"userid" => { "two" }});
+}
+
+#[test]
+fn test_with_map_parseable_key() {
+    use autosurgeon::parse_fromstr::hash_map;
+
+    #[derive(Reconcile, Hydrate)]
+    struct ParseableKeyHashMap {
+        #[autosurgeon(with = "hash_map")]
+        items: std::collections::HashMap<u16, String>,
+    }
+
+    let mut doc = automerge::AutoCommit::new();
+    let items = doc
+        .put_object(&automerge::ROOT, "items", ObjType::Map)
+        .unwrap();
+    doc.put(&items, 123u16.to_string(), "one-two-three")
+        .unwrap();
+    doc.put(&items, 456u16.to_string(), "four-five-six")
+        .unwrap();
+
+    let mut hm: ParseableKeyHashMap = hydrate(&doc).unwrap();
+
+    hm.items.insert(789, "seven-eight-nine".to_owned());
+
+    reconcile(&mut doc, &hm).unwrap();
+
+    assert_doc!(
+        doc.document(),
+        map! {
+            "items" => { map! {
+                "123" => { "one-two-three" },
+                "456" => { "four-five-six" },
+                "789" => { "seven-eight-nine" },
+            }}
+        }
+    );
 }
