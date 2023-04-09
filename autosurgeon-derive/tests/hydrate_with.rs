@@ -8,10 +8,10 @@ struct Inner(u64);
 #[autosurgeon(hydrate = "hydrate_outer")]
 struct Outer(Inner);
 
-fn hydrate_outer<'a, D: ReadDoc>(
+fn hydrate_outer<D: ReadDoc>(
     doc: &D,
     obj: &automerge::ObjId,
-    prop: Prop<'a>,
+    prop: Prop<'_>,
 ) -> Result<Outer, HydrateError> {
     Ok(Outer(Inner(u64::hydrate(doc, obj, prop)?)))
 }
@@ -34,10 +34,10 @@ struct User {
     id: UserId,
 }
 
-fn hydrate_userid<'a, D: ReadDoc>(
+fn hydrate_userid<D: ReadDoc>(
     doc: &D,
     obj: &automerge::ObjId,
-    prop: Prop<'a>,
+    prop: Prop<'_>,
 ) -> Result<UserId, HydrateError> {
     Ok(UserId(String::hydrate(doc, obj, prop)?))
 }
@@ -83,10 +83,10 @@ enum Temperature {
     Celsius(#[autosurgeon(hydrate = "hydrate_specialfloat")] SpecialFloat),
 }
 
-fn hydrate_specialfloat<'a, D: ReadDoc>(
+fn hydrate_specialfloat<D: ReadDoc>(
     doc: &D,
     obj: &automerge::ObjId,
-    prop: Prop<'a>,
+    prop: Prop<'_>,
 ) -> Result<SpecialFloat, HydrateError> {
     Ok(SpecialFloat(f64::hydrate(doc, obj, prop)?))
 }

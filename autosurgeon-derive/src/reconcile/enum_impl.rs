@@ -12,19 +12,22 @@ use super::struct_impl::{
 };
 use super::{error::DeriveError, ReconcileImpl};
 
+/// Represents a variant of an enum.
 enum Variant<'a> {
-    Unit {
-        name: &'a syn::Ident,
-    },
+    /// A fieldless variant.
+    Unit { name: &'a syn::Ident },
+    /// A variant with one unnamed field.
     NewType {
         name: &'a syn::Ident,
         inner_ty: &'a syn::Type,
         attrs: attrs::EnumNewtypeAttrs,
     },
+    /// A struct variant with named fields.
     Named {
         name: &'a syn::Ident,
         fields: &'a syn::FieldsNamed,
     },
+    /// A tuple variant with unnamed fields.
     Unnamed {
         name: &'a syn::Ident,
         fields: &'a syn::FieldsUnnamed,
@@ -71,7 +74,7 @@ impl<'a> Variant<'a> {
     ) -> Result<proc_macro2::TokenStream, DeriveError> {
         match self {
             Self::Unit { name } => {
-                let name_string = format_ident!("{}", name).to_string();
+                let name_string = name.to_string();
                 Ok(quote! { Self::#name => reconciler.str(#name_string) })
             }
             Self::NewType {
@@ -79,7 +82,7 @@ impl<'a> Variant<'a> {
                 attrs,
                 inner_ty,
             } => {
-                let name_string = format_ident!("{}", name).to_string();
+                let name_string = name.to_string();
                 let ty = inner_ty;
                 let reconciler = attrs.reconcile_with().map(|reconcile_with| {
                     quote!{
@@ -100,9 +103,11 @@ impl<'a> Variant<'a> {
                                 #reconcile_with::key(self.0)
                             }
                         }
+                        m.retain(|k, _| k == #name_string)?;
                         m.put(#name_string, ___EnumNewtypeVisitor(&v))?;
                     }
                 }).unwrap_or_else(|| quote!{
+                    m.retain(|k, _| k == #name_string)?;
                     m.put(#name_string, v)?;
                 });
                 Ok(quote! {
@@ -732,7 +737,7 @@ fn enum_with_fields_variant<F: VariantWithFields>(
     name: &syn::Ident,
     variant: F,
 ) -> Result<TokenStream, DeriveError> {
-    let variant_name_str = format_ident!("{}", name).to_string();
+    let variant_name_str = name.to_string();
     let visitor_name = format_ident!("{}ReconcileVisitor", name);
 
     let fields = variant.fields()?;
@@ -761,6 +766,7 @@ fn enum_with_fields_variant<F: VariantWithFields>(
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let variant_matcher = variant.variant_matcher(name, matchers);
+
     Ok(quote! {
         #variant_matcher => {
             use autosurgeon::reconcile::{Reconciler, MapReconciler};
@@ -769,7 +775,7 @@ fn enum_with_fields_variant<F: VariantWithFields>(
             {
                 #(#field_defs),*
             }
-            impl #impl_generics Reconcile for #visitor_name #ty_generics {
+            impl #impl_generics autosurgeon::Reconcile for #visitor_name #ty_generics {
                 type Key<'k> = autosurgeon::reconcile::NoKey;
                 fn reconcile<__R234: autosurgeon::Reconciler>(&self, mut #inner_reconciler_ident: __R234) -> Result<(), __R234::Error> {
                     #inner_reconcile
@@ -779,6 +785,7 @@ fn enum_with_fields_variant<F: VariantWithFields>(
                 #(#constructors),*
             };
             let mut m = #reconciler_ident.map()?;
+            m.retain(|k, _| k == #variant_name_str)?;
             m.put(#variant_name_str, v)?;
             Ok(())
         }

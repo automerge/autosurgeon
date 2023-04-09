@@ -39,10 +39,10 @@ mod autosurgeon_userid {
         LoadKey::Found(std::borrow::Cow::Borrowed(&u.0))
     }
 
-    pub(super) fn hydrate<'a, D: ReadDoc>(
+    pub(super) fn hydrate<D: ReadDoc>(
         doc: &D,
         obj: &automerge::ObjId,
-        prop: autosurgeon::Prop<'a>,
+        prop: autosurgeon::Prop<'_>,
     ) -> Result<UserId, autosurgeon::HydrateError> {
         Ok(UserId(String::hydrate(doc, obj, prop)?))
     }

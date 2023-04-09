@@ -65,10 +65,10 @@ impl Hydrate for f32 {
 }
 
 impl<T: Hydrate> Hydrate for Option<T> {
-    fn hydrate<'a, D: ReadDoc>(
+    fn hydrate<D: ReadDoc>(
         doc: &D,
         obj: &automerge::ObjId,
-        prop: crate::Prop<'a>,
+        prop: crate::Prop<'_>,
     ) -> Result<Self, HydrateError> {
         use automerge::{ObjType, ScalarValue, Value};
         Ok(match doc.get(obj, &prop)? {
@@ -101,20 +101,20 @@ impl<T: Hydrate> Hydrate for Option<T> {
 }
 
 impl<'a, T: Hydrate + Clone> Hydrate for Cow<'a, T> {
-    fn hydrate<'b, D: ReadDoc>(
+    fn hydrate<D: ReadDoc>(
         doc: &D,
         obj: &automerge::ObjId,
-        prop: crate::Prop<'b>,
+        prop: crate::Prop<'_>,
     ) -> Result<Self, HydrateError> {
         Ok(Cow::Owned(T::hydrate(doc, obj, prop)?))
     }
 }
 
 impl<T: Hydrate> Hydrate for Box<T> {
-    fn hydrate<'a, D: ReadDoc>(
+    fn hydrate<D: ReadDoc>(
         doc: &D,
         obj: &automerge::ObjId,
-        prop: crate::Prop<'a>,
+        prop: crate::Prop<'_>,
     ) -> Result<Self, HydrateError> {
         Ok(Box::new(T::hydrate(doc, obj, prop)?))
     }

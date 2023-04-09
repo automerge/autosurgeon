@@ -91,10 +91,10 @@ fn newtype_field_variant_stanza(
     }
 }
 
-fn named_field_variant_stanza<'a>(
+fn named_field_variant_stanza(
     outer_ty: &syn::Ident,
     variant_name: &syn::Ident,
-    fields: &[NamedField<'a>],
+    fields: &[NamedField<'_>],
 ) -> TokenStream {
     let ty = outer_ty;
 
