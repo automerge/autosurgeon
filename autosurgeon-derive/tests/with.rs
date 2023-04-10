@@ -106,7 +106,7 @@ fn with_on_tuplestruct() {
 fn test_with_map_parseable_key() {
     #[derive(Reconcile, Hydrate)]
     struct ParseableKeyHashMap {
-        #[autosurgeon(with = "autosurgeon::parse_fromstr::hash_map")]
+        #[autosurgeon(with = "autosurgeon::parse_fromstr")]
         items: std::collections::HashMap<u16, String>,
     }
 
