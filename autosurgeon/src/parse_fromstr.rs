@@ -1,3 +1,20 @@
+//! Derive macro adaptors for maps with parseable and printable keys.
+//!
+//! The default implementations of [`Reconcile`] and [`Hydrate`] for
+//! [`HashMap`][std::collections::HashMap] and [`BTreeMap`][std::collections::BTreeMap]
+//! require the key to implement [`AsRef<str>`] and [`From<String>`], respectively.  This is not
+//! always possible: for example, a hash map with integer keys cannot be represented that way.
+//! As a solution, this module offers `with`-adaptors for derive macros, which rely on [`ToString`]
+//! and [`FromStr`]:
+//!
+//! ```
+//! # use autosurgeon::{Reconcile, Hydrate};
+//! #[derive(Reconcile, Hydrate)]
+//! struct MyDocument {
+//!     #[autosurgeon(with = "autosurgeon::parse_fromstr::hash_map")]
+//!     items: std::collections::HashMap<u16, String>,
+//! }
+//! ```
 use std::{error, str::FromStr};
 
 use automerge::{ObjType, Value};
