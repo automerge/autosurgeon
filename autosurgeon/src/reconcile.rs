@@ -5,7 +5,7 @@ use automerge::ScalarValue;
 use crate::{Doc, Prop, ReadDoc};
 
 mod impls;
-mod map;
+pub(crate) mod map;
 mod seq;
 
 /// A node in the document we are reconciling with.

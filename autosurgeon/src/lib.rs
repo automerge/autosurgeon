@@ -436,7 +436,7 @@ pub use reconcile::{
 };
 mod text;
 pub use text::Text;
-pub mod parse_fromstr;
+pub mod map_with_parseable_keys;
 
 mod prop;
 pub use prop::Prop;
