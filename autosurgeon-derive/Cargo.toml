@@ -20,5 +20,5 @@ thiserror = "1.0.37"
 
 [dev-dependencies]
 autosurgeon = { path = "../autosurgeon" }
-automerge = { version = "^0.3" }
-automerge-test = "^0.2"
+automerge = { version = "0.4.0" }
+automerge-test = "0.3.0"
