@@ -6,7 +6,7 @@ edition = "2021"
 authors = ["Alex Good <alex@memoryandthought.me>"]
 license = "MIT"
 rust-version = "1.65.0"
-repository = "https://github.com/alexjg/autosurgeon"
+repository = "https://github.com/automerge/autosurgeon"
 readme = "../README.md"
 
 [dependencies]
