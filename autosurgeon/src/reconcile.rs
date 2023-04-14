@@ -193,7 +193,7 @@ pub trait SeqReconciler {
     /// Delete an index from the sequence
     fn delete(&mut self, index: usize) -> Result<(), Self::Error>;
 
-    /// Get the current length of the sequnce
+    /// Get the current length of the sequence
     fn len(&self) -> Result<usize, Self::Error>;
 
     fn is_empty(&self) -> Result<bool, Self::Error> {
@@ -325,7 +325,7 @@ pub trait Reconcile {
     /// 2. `R` reconciles to a composite data structure - either a map, list, counter, or text in
     ///    which case you obtain the nested reconciler using [`Reconciler::map`],
     ///    [`Reconciler::seq`], [`Reconciler::counter`] or [`Reconciler::text`] respectively and
-    ///    then proceed with reconciliation using then ested reconciler
+    ///    then proceed with reconciliation using then nested reconciler
     fn reconcile<R: Reconciler>(&self, reconciler: R) -> Result<(), R::Error>;
 
     /// Hydrate the key for this Object
@@ -395,7 +395,7 @@ pub trait Reconcile {
 pub enum ReconcileError {
     #[error(transparent)]
     Automerge(#[from] automerge::AutomergeError),
-    #[error("the top level object must reconile to a map")]
+    #[error("the top level object must reconcile to a map")]
     TopLevelNotMap,
     #[error(transparent)]
     StaleHeads(#[from] StaleHeads),
