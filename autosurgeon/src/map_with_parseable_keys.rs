@@ -46,7 +46,7 @@ pub fn hydrate<'a, D, K, V, M>(
 where
     D: crate::ReadDoc,
     K: FromStr,
-    K::Err: error::Error + 'static,
+    K::Err: error::Error + Send + Sync + 'static,
     V: Hydrate,
     M: FromIterator<(K, V)>,
 {
@@ -60,6 +60,7 @@ where
         }
     };
     crate::hydrate::map::hydrate_map_impl(doc, &obj, |k| {
-        k.parse::<K>().map_err(|e| HydrateError::Parse(e.into()))
+        k.parse::<K>()
+            .map_err(|e| HydrateError::ParseMapKey(e.into()))
     })
 }
