@@ -28,11 +28,11 @@ where
     }
 }
 
-fn reconcile_map_impl<
+pub(crate) fn reconcile_map_impl<
     'a,
     K: AsRef<str> + 'a,
     V: Reconcile + 'a,
-    I: Iterator<Item = (&'a K, &'a V)>,
+    I: Iterator<Item = (K, &'a V)>,
     R: crate::Reconciler,
 >(
     items: I,
@@ -41,7 +41,7 @@ fn reconcile_map_impl<
     let mut m = reconciler.map()?;
     for (k, val) in items {
         if let LoadKey::Found(new_key) = val.key() {
-            if let LoadKey::Found(existing_key) = m.hydrate_entry_key::<V, _>(k)? {
+            if let LoadKey::Found(existing_key) = m.hydrate_entry_key::<V, _>(&k)? {
                 if existing_key != new_key {
                     m.replace(k, val)?;
                     continue;

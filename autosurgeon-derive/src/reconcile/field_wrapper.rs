@@ -32,7 +32,7 @@ pub(crate) fn nokey_wrapper<T: ToTokens>(
 pub(crate) fn with_key_wrapper(
     ty: &syn::Type,
     wrapper_tyname: &syn::Ident,
-    module_name: &syn::Ident,
+    module_name: &syn::Path,
 ) -> TokenStream {
     quote! {
         struct #wrapper_tyname<'a>(&'a #ty);

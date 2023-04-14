@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use crate::{Prop, ReadDoc};
 
 mod impls;
-mod map;
+pub(crate) mod map;
 
 /// A type which can be hydrated from an automerge document
 ///
@@ -188,6 +188,8 @@ pub enum HydrateError {
     Automerge(#[from] automerge::AutomergeError),
     #[error("unexpected {0}")]
     Unexpected(Unexpected),
+    #[error("map key parse error: {0}")]
+    ParseMapKey(Box<dyn std::error::Error + Send + Sync + 'static>),
 }
 
 impl HydrateError {
@@ -262,6 +264,7 @@ impl<T> HydrateResultExt<Option<T>> for Result<Option<T>, HydrateError> {
             Ok(v) => Ok(v),
             Err(HydrateError::Unexpected(_)) => Ok(None),
             Err(HydrateError::Automerge(e)) => Err(e),
+            Err(HydrateError::ParseMapKey(_)) => Ok(None),
         }
     }
 }

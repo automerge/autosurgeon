@@ -1,7 +1,6 @@
 use std::{
     collections::{BTreeMap, HashMap},
     hash::Hash,
-    ops::RangeFull,
 };
 
 use automerge::ObjType;
@@ -17,14 +16,7 @@ where
         doc: &D,
         obj: &automerge::ObjId,
     ) -> Result<Self, crate::HydrateError> {
-        map_impl(doc, obj, |range| {
-            let mut result = HashMap::new();
-            for (key, _, _) in range {
-                let val = V::hydrate(doc, obj, key.into())?;
-                result.insert(K::from(key.to_string()), val);
-            }
-            Ok(result)
-        })
+        hydrate_map_impl(doc, obj, |k| Ok(K::from(k.to_string())))
     }
 }
 
@@ -37,27 +29,33 @@ where
         doc: &D,
         obj: &automerge::ObjId,
     ) -> Result<Self, crate::HydrateError> {
-        map_impl(doc, obj, |range| {
-            let mut result = BTreeMap::new();
-            for (key, _, _) in range {
-                let val = V::hydrate(doc, obj, key.into())?;
-                result.insert(K::from(key.to_string()), val);
-            }
-            Ok(result)
-        })
+        hydrate_map_impl(doc, obj, |k| Ok(K::from(k.to_string())))
     }
 }
 
-fn map_impl<'a, D, F, O>(doc: &'a D, obj: &automerge::ObjId, f: F) -> Result<O, crate::HydrateError>
+pub(crate) fn hydrate_map_impl<'a, F, D, K, V, M>(
+    doc: &'a D,
+    obj: &automerge::ObjId,
+    extract_key: F,
+) -> Result<M, crate::HydrateError>
 where
+    F: Fn(&'a str) -> Result<K, crate::HydrateError>,
     D: crate::ReadDoc,
-    F: Fn(automerge::MapRange<'a, RangeFull>) -> Result<O, crate::HydrateError>,
+    V: Hydrate,
+    M: FromIterator<(K, V)>,
 {
     let Some(obj_type) = doc.object_type(obj) else {
         return Err(HydrateError::unexpected("a map", "a scalar value".to_string()))
     };
     match obj_type {
-        ObjType::Map | ObjType::Table => f(doc.map_range(obj, ..)),
+        ObjType::Map | ObjType::Table => doc
+            .map_range(obj.clone(), ..)
+            .map(move |(key, _, _)| {
+                let val = V::hydrate(doc, obj, key.into())?;
+                let key_parsed: K = extract_key(key)?;
+                Ok((key_parsed, val))
+            })
+            .collect(),
         ObjType::Text => Err(HydrateError::unexpected(
             "a map",
             "a text object".to_string(),
