@@ -48,6 +48,7 @@ use crate::{
 /// let quote: Quote = hydrate(&doc).unwrap();
 /// assert_eq!(quote.text.as_str(), "All that glitters is not gold");
 /// ```
+#[derive(Clone)]
 pub struct Text(State);
 
 impl std::default::Default for Text {
@@ -124,6 +125,7 @@ impl<S: AsRef<str>> From<S> for Text {
     }
 }
 
+#[derive(Clone)]
 enum State {
     Fresh(String),
     Rehydrated {
@@ -133,6 +135,7 @@ enum State {
     },
 }
 
+#[derive(Clone)]
 struct Splice {
     pos: usize,
     delete: usize,
