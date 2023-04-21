@@ -33,6 +33,7 @@ use crate::{reconcile::CounterReconciler, Hydrate, Reconcile};
 /// let stats: Stats = hydrate(&doc).unwrap();
 /// assert_eq!(stats.num_clicks.value(), 8);
 /// ```
+#[derive(Clone)]
 pub struct Counter(State);
 
 impl std::fmt::Debug for Counter {
@@ -49,6 +50,7 @@ impl std::default::Default for Counter {
     }
 }
 
+#[derive(Clone)]
 enum State {
     Fresh(i64),
     Rehydrated { original: i64, increment: i64 },
