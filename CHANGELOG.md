@@ -1,3 +1,9 @@
+## `0.6.0`
+
+* BREAKING: Add a `Reconcile::Key` to the `Reconcile` implementation for
+  `Uuid`.
+* Update `autosurgeon-derive` to `syn` 2.0
+
 ## `0.5.1`
 
 * Add `Clone` for `Text` and `Counter`
