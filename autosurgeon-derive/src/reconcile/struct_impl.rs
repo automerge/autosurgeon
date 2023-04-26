@@ -97,7 +97,7 @@ impl<'a> NamedField<'a> {
     pub(super) fn new(
         name: Cow<'a, syn::Ident>,
         field: &'a syn::Field,
-    ) -> Result<Self, attrs::error::InvalidFieldAttrs> {
+    ) -> Result<Self, syn::parse::Error> {
         let attrs = attrs::Field::from_field(field)?.unwrap_or_default();
         Ok(Self {
             name,
@@ -163,10 +163,7 @@ pub(super) struct TupleField<'a> {
 }
 
 impl<'a> TupleField<'a> {
-    fn new(
-        index: usize,
-        field: Cow<'a, syn::Field>,
-    ) -> Result<TupleField<'a>, attrs::error::InvalidFieldAttrs> {
+    fn new(index: usize, field: Cow<'a, syn::Field>) -> Result<TupleField<'a>, syn::parse::Error> {
         let attrs = attrs::Field::from_field(&field)?.unwrap_or_default();
         Ok(Self {
             index,
@@ -262,19 +259,15 @@ impl<'a, F: Field + Clone> KeyField<'a, F> {
         let mut key_field = None;
         for field in fields {
             for attr in field.attrs() {
-                let meta = attr.parse_meta()?;
-                match meta {
-                    syn::Meta::Path(p) if p.is_ident("key") => {
-                        if key_field.is_some() {
-                            return Err(InvalidKeyAttr::MultipleKey);
-                        } else {
-                            key_field = Some(KeyField {
-                                ty: Cow::Borrowed(field.ty()),
-                                field: Cow::Borrowed(field),
-                            });
-                        }
+                if attr.path().is_ident("key") {
+                    if key_field.is_some() {
+                        return Err(InvalidKeyAttr::MultipleKey);
+                    } else {
+                        key_field = Some(KeyField {
+                            ty: Cow::Borrowed(field.ty()),
+                            field: Cow::Borrowed(field),
+                        });
                     }
-                    _ => {}
                 }
             }
         }
@@ -389,10 +382,7 @@ impl<'a> TryFrom<&'a syn::FieldsNamed> for NamedFields<'a> {
             fields
                 .named
                 .iter()
-                .map(|f| {
-                    NamedField::new(Cow::Borrowed(f.ident.as_ref().unwrap()), f)
-                        .map_err(|e| DeriveError::InvalidFieldAttrs(e, f.clone()))
-                })
+                .map(|f| NamedField::new(Cow::Borrowed(f.ident.as_ref().unwrap()), f))
                 .collect::<Result<Vec<_>, _>>()?,
         ))
     }
@@ -458,10 +448,7 @@ impl<'a> TryFrom<&'a syn::FieldsUnnamed> for UnnamedFields<TupleField<'a>> {
             f.unnamed
                 .iter()
                 .enumerate()
-                .map(|(index, f)| {
-                    TupleField::new(index, Cow::Borrowed(f))
-                        .map_err(|e| DeriveError::InvalidFieldAttrs(e, f.clone()))
-                })
+                .map(|(index, f)| TupleField::new(index, Cow::Borrowed(f)))
                 .collect::<Result<Vec<_>, _>>()?,
         ))
     }

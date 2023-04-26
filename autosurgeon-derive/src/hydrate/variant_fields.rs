@@ -21,27 +21,20 @@ impl<'a> Variant<'a> {
             syn::Fields::Named(nf) => VariantFields::Named(
                 nf.named
                     .iter()
-                    .map(|f| {
-                        NamedField::new(f, f.ident.as_ref().unwrap())
-                            .map_err(|e| DeriveError::InvalidFieldAttrs(e, f.clone()))
-                    })
+                    .map(|f| NamedField::new(f, f.ident.as_ref().unwrap()))
                     .collect::<Result<Vec<_>, _>>()?,
             ),
             syn::Fields::Unnamed(uf) => {
                 if uf.unnamed.len() == 1 {
                     let f = uf.unnamed.first().unwrap();
-                    let field = NewtypeField::from_field(f)
-                        .map_err(|e| DeriveError::InvalidFieldAttrs(e, f.clone()))?;
+                    let field = NewtypeField::from_field(f)?;
                     VariantFields::NewType(field)
                 } else {
                     VariantFields::Unnamed(
                         uf.unnamed
                             .iter()
                             .enumerate()
-                            .map(|(i, f)| {
-                                UnnamedField::new(f, i)
-                                    .map_err(|e| DeriveError::InvalidFieldAttrs(e, f.clone()))
-                            })
+                            .map(|(i, f)| UnnamedField::new(f, i))
                             .collect::<Result<Vec<_>, _>>()?,
                     )
                 }

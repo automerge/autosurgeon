@@ -11,10 +11,7 @@ pub(crate) struct UnnamedField {
 }
 
 impl UnnamedField {
-    pub(crate) fn new(
-        field: &syn::Field,
-        index: usize,
-    ) -> Result<Self, attrs::error::InvalidFieldAttrs> {
+    pub(crate) fn new(field: &syn::Field, index: usize) -> Result<Self, syn::parse::Error> {
         let attrs = attrs::Field::from_field(field)?.unwrap_or_default();
         Ok(Self {
             field: field.clone(),

@@ -30,7 +30,7 @@ pub fn derive_reconcile(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     let container_attrs = match attrs::Container::from_attrs(input.attrs.iter()) {
         Ok(c) => c.unwrap_or_default(),
         Err(e) => {
-            let span = e.span().unwrap_or(span);
+            let span = e.span();
             return proc_macro::TokenStream::from(
                 syn::Error::new(span, e.to_string()).to_compile_error(),
             );
@@ -200,8 +200,7 @@ fn reconcile_with_impl(
 
 fn newtype_struct_impl(field: &syn::Field) -> Result<ReconcileImpl, error::DeriveError> {
     let field_ty = &field.ty;
-    let fieldattrs = attrs::Field::from_field(field)
-        .map_err(|e| error::DeriveError::InvalidFieldAttrs(e, field.clone()))?;
+    let fieldattrs = attrs::Field::from_field(field)?;
     let key_lifetime = syn::Lifetime::new("'k", Span::mixed_site());
     if let Some(reconcile_with) = fieldattrs.as_ref().and_then(|f| f.reconcile_with()) {
         let name = syn::Ident::new("inner", Span::mixed_site());
@@ -244,32 +243,26 @@ fn newtype_struct_impl(field: &syn::Field) -> Result<ReconcileImpl, error::Deriv
 
 mod error {
     use proc_macro2::Span;
-    use syn::spanned::Spanned;
-
-    use crate::attrs;
 
     #[derive(Debug, thiserror::Error)]
     pub(crate) enum DeriveError {
         #[error(transparent)]
         InvalidKeyAttr(#[from] InvalidKeyAttr),
-        #[error("{0}")]
-        InvalidFieldAttrs(attrs::error::InvalidFieldAttrs, syn::Field),
-        #[error("{0}")]
-        InvalidEnumNewtypeFieldAttrs(attrs::error::InvalidEnumNewtypeFieldAttrs, syn::Field),
         #[error("cannot derive Reconcile for a unit struct")]
         Unit,
         #[error("cannot derive Reconcile for a Union")]
         Union,
+        #[error(transparent)]
+        Syn(#[from] syn::Error),
     }
 
     impl DeriveError {
         pub(super) fn span(&self) -> Option<Span> {
             match self {
                 Self::InvalidKeyAttr(e) => e.span(),
-                Self::InvalidFieldAttrs(_, f) => Some(f.span()),
-                Self::InvalidEnumNewtypeFieldAttrs(e, f) => e.span().or_else(|| Some(f.span())),
                 Self::Unit => None,
                 Self::Union => None,
+                Self::Syn(s) => Some(s.span()),
             }
         }
     }

@@ -14,7 +14,7 @@ impl<'a> NamedField<'a> {
     pub(crate) fn new(
         syn_field: &'a syn::Field,
         name: &'a syn::Ident,
-    ) -> Result<Self, attrs::error::InvalidFieldAttrs> {
+    ) -> Result<Self, syn::parse::Error> {
         let attrs = attrs::Field::from_field(syn_field)?.unwrap_or_default();
         Ok(Self {
             field: syn_field.clone(),

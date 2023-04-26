@@ -2,8 +2,6 @@ use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::spanned::Spanned;
 
-use self::error::InvalidEnumNewtypeFieldAttrs;
-
 #[derive(Default)]
 pub(crate) struct Container {
     reconcile_with: Option<ReconcileWith>,
@@ -13,16 +11,18 @@ pub(crate) struct Container {
 impl Container {
     pub(crate) fn from_attrs<'a, I: Iterator<Item = &'a syn::Attribute>>(
         attrs: I,
-    ) -> Result<Option<Self>, error::InvalidContainerAttrs> {
-        let Some(kvs) = autosurgeon_kvs(attrs)? else {
-            return Ok(None);
-        };
-        let reconcile_with = ReconcileWith::from_kvs(kvs.iter())?;
-        let hydrate_with = HydrateWith::from_kvs(kvs.iter())?;
-        Ok(Some(Container {
-            reconcile_with,
-            hydrate_with,
-        }))
+    ) -> Result<Option<Self>, syn::parse::Error> {
+        let mut result = None;
+        for attr in attrs {
+            if attr.path().is_ident("autosurgeon") {
+                let attrs = AutosurgeonAttrs::from_attr(attr)?;
+                result = Some(Container {
+                    reconcile_with: ReconcileWith::from_attrs(&attrs)?,
+                    hydrate_with: HydrateWith::from_attrs(&attrs)?,
+                });
+            }
+        }
+        Ok(result)
     }
 
     pub(crate) fn reconcile_with(&self) -> Option<&ReconcileWith> {
@@ -42,80 +42,36 @@ pub(crate) enum ReconcileWith {
 }
 
 impl ReconcileWith {
-    fn from_kvs<'a, I: Iterator<Item = &'a syn::MetaNameValue>>(
-        kvs: I,
-    ) -> Result<Option<Self>, error::InvalidReconcileWith> {
-        let mut module_name = None;
-        let mut function_name = None;
-        let mut with_name = None;
-        for kv in kvs {
-            if kv.path.is_ident("reconcile") {
-                if function_name.is_some() {
-                    return Err(error::InvalidReconcileWith::MultipleReconcile);
-                }
-                match &kv.lit {
-                    syn::Lit::Str(s) => {
-                        function_name =
-                            Some(s.parse().map_err(|_| {
-                                error::InvalidReconcileWith::ReconcileNotPath(s.span())
-                            })?)
-                    }
-                    other => {
-                        return Err(error::InvalidReconcileWith::ReconcileNotString(
-                            other.span(),
-                        ))
-                    }
-                }
+    fn from_attrs(attrs: &AutosurgeonAttrs) -> syn::parse::Result<Option<Self>> {
+        if let Some(with_name) = &attrs.with {
+            if attrs.reconcile.is_some() {
+                return Err(syn::parse::Error::new(
+                    attrs.span,
+                    "cannot specify both 'with' and 'reconcile'",
+                ));
             }
-            if kv.path.is_ident("reconcile_with") {
-                if module_name.is_some() {
-                    return Err(error::InvalidReconcileWith::MultipleReconcileWith);
-                }
-                match &kv.lit {
-                    syn::Lit::Str(s) => {
-                        module_name =
-                            Some(s.parse().map_err(|_| {
-                                error::InvalidReconcileWith::ReconcileNotPath(s.span())
-                            })?)
-                    }
-                    other => {
-                        return Err(error::InvalidReconcileWith::ReconcileNotString(
-                            other.span(),
-                        ))
-                    }
-                }
+            if attrs.reconcile_with.is_some() {
+                return Err(syn::parse::Error::new(
+                    attrs.span,
+                    "cannot specify both 'with' and 'reconcile_with'",
+                ));
             }
-            if kv.path.is_ident("with") {
-                if with_name.is_some() {
-                    return Err(error::InvalidReconcileWith::MultipleWith);
-                }
-                match &kv.lit {
-                    syn::Lit::Str(s) => {
-                        with_name = Some(
-                            s.parse()
-                                .map_err(|_| error::InvalidReconcileWith::WithNotPath(s.span()))?,
-                        )
-                    }
-                    other => {
-                        return Err(error::InvalidReconcileWith::WithNotString(other.span()));
-                    }
-                }
-            }
-        }
-        if let Some(with_name) = with_name {
-            if module_name.is_some() || function_name.is_some() {
-                return Err(error::InvalidReconcileWith::ReconcileAndReconcileWith);
-            } else {
-                return Ok(Some(Self::With {
-                    module_name: with_name,
-                }));
-            }
+            return Ok(Some(ReconcileWith::With {
+                module_name: with_name.clone(),
+            }));
         };
-        match (module_name, function_name) {
-            (Some(module_name), None) => Ok(Some(Self::Module { module_name })),
-            (None, Some(function_name)) => Ok(Some(Self::Function { function_name })),
+        match (&attrs.reconcile_with, &attrs.reconcile) {
+            (Some(module_name), None) => Ok(Some(ReconcileWith::Module {
+                module_name: module_name.clone(),
+            })),
+            (None, Some(function_name)) => Ok(Some(ReconcileWith::Function {
+                function_name: function_name.clone(),
+            })),
             (None, None) => Ok(None),
-            (Some(_), Some(_)) => Err(error::InvalidReconcileWith::ReconcileAndReconcileWith),
+            (Some(_), Some(_)) => Err(syn::parse::Error::new(
+                attrs.span,
+                "cannot specify both 'reconcile' and 'reconcile_with' attributes",
+            )),
         }
     }
 
@@ -194,45 +150,20 @@ pub(crate) enum HydrateWith {
 }
 
 impl HydrateWith {
-    fn from_kvs<'a, I: Iterator<Item = &'a syn::MetaNameValue>>(
-        kvs: I,
-    ) -> Result<Option<Self>, error::InvalidHydrateWith> {
-        let mut function_name = None;
-        let mut with_name = None;
-        for kv in kvs {
-            if kv.path.is_ident("hydrate") {
-                if function_name.is_some() {
-                    return Err(error::InvalidHydrateWith::MultipleHydrate);
-                }
-                match &kv.lit {
-                    syn::Lit::Str(s) => {
-                        function_name = Some(
-                            s.parse()
-                                .map_err(|_| error::InvalidHydrateWith::HydrateNotPath(s.span()))?,
-                        )
-                    }
-                    other => return Err(error::InvalidHydrateWith::HydrateNotString(other.span())),
-                }
+    fn from_attrs(attrs: &AutosurgeonAttrs) -> syn::parse::Result<Option<Self>> {
+        let hydrate_with = match (&attrs.hydrate, &attrs.with) {
+            (Some(function_name), None) => HydrateWith::Function {
+                function_name: function_name.clone(),
+            },
+            (None, Some(w)) => HydrateWith::Module {
+                module_name: w.clone(),
+            },
+            (Some(_), Some(_)) => {
+                return Err(syn::parse::Error::new(
+                    attrs.span,
+                    "cannot specify both 'hydrate' and 'with'",
+                ));
             }
-            if kv.path.is_ident("with") {
-                if with_name.is_some() {
-                    return Err(error::InvalidHydrateWith::MultipleWith);
-                }
-                match &kv.lit {
-                    syn::Lit::Str(s) => {
-                        with_name = Some(
-                            s.parse()
-                                .map_err(|_| error::InvalidHydrateWith::WithNotPath(s.span()))?,
-                        )
-                    }
-                    other => return Err(error::InvalidHydrateWith::HydrateNotString(other.span())),
-                }
-            }
-        }
-        let hydrate_with = match (function_name, with_name) {
-            (Some(function_name), None) => Self::Function { function_name },
-            (None, Some(w)) => Self::Module { module_name: w },
-            (Some(_), Some(_)) => return Err(error::InvalidHydrateWith::HydrateAndWith),
             (None, None) => return Ok(None),
         };
         Ok(Some(hydrate_with))
@@ -255,16 +186,24 @@ pub(crate) struct Field {
 }
 
 impl Field {
-    pub(crate) fn from_field(field: &syn::Field) -> Result<Option<Self>, error::InvalidFieldAttrs> {
-        let Some(kvs) = autosurgeon_kvs(field.attrs.iter())? else {
-            return Ok(None);
-        };
-        let reconcile_with = ReconcileWith::from_kvs(kvs.iter())?;
-        let hydrate_with = HydrateWith::from_kvs(kvs.iter())?;
-        Ok(Some(Field {
-            reconcile_with,
-            hydrate_with,
-        }))
+    pub(crate) fn from_field(field: &syn::Field) -> Result<Option<Self>, syn::parse::Error> {
+        let mut result = None;
+        for attr in &field.attrs {
+            if attr.path().is_ident("autosurgeon") {
+                if result.is_some() {
+                    return Err(syn::parse::Error::new(
+                        attr.span(),
+                        "duplicate autosurgeon attribute",
+                    ));
+                }
+                let attrs = AutosurgeonAttrs::from_attr(attr)?;
+                result = Some(Field {
+                    reconcile_with: ReconcileWith::from_attrs(&attrs)?,
+                    hydrate_with: HydrateWith::from_attrs(&attrs)?,
+                });
+            }
+        }
+        Ok(result)
     }
 
     pub(crate) fn reconcile_with(&self) -> Option<&ReconcileWith> {
@@ -274,44 +213,6 @@ impl Field {
     pub(crate) fn hydrate_with(&self) -> Option<&HydrateWith> {
         self.hydrate_with.as_ref()
     }
-}
-
-fn autosurgeon_kvs<'a, I: Iterator<Item = &'a syn::Attribute>>(
-    attrs: I,
-) -> Result<Option<Vec<syn::MetaNameValue>>, error::InvalidAutosurgeonKvs> {
-    let mut result = None;
-    for attr in attrs {
-        if attr.path.is_ident("autosurgeon") {
-            if result.is_some() {
-                return Err(error::InvalidAutosurgeonKvs::Multiple);
-            }
-            let meta = attr.parse_meta()?;
-            let kvs = match meta {
-                syn::Meta::Path(p) => {
-                    return Err(error::InvalidAutosurgeonKvs::InvalidFormat(p.span()))
-                }
-                syn::Meta::NameValue(kv) => vec![kv],
-                syn::Meta::List(meta) => meta
-                    .nested
-                    .into_iter()
-                    .map(|meta| match meta {
-                        syn::NestedMeta::Lit(n) => {
-                            Err(error::InvalidAutosurgeonKvs::InvalidFormat(n.span()))
-                        }
-                        syn::NestedMeta::Meta(p @ syn::Meta::Path(_)) => {
-                            Err(error::InvalidAutosurgeonKvs::InvalidFormat(p.span()))
-                        }
-                        syn::NestedMeta::Meta(l @ syn::Meta::List(_)) => {
-                            Err(error::InvalidAutosurgeonKvs::InvalidFormat(l.span()))
-                        }
-                        syn::NestedMeta::Meta(syn::Meta::NameValue(kv)) => Ok(kv),
-                    })
-                    .collect::<Result<Vec<_>, _>>()?,
-            };
-            result = Some(kvs);
-        }
-    }
-    Ok(result)
 }
 
 // This is different to `Field` because we don't allow `reconcile=` on enum newtype fields. Why?,
@@ -350,230 +251,82 @@ fn autosurgeon_kvs<'a, I: Iterator<Item = &'a syn::Attribute>>(
 #[derive(PartialEq, Eq, Default)]
 pub(crate) struct EnumNewtypeAttrs {
     /// The name of a reconcile module
-    reconcile_with: Option<syn::Ident>,
+    reconcile_with: Option<syn::Path>,
     /// Either the name of a hydrate module or just a hydrate function
     hydrate_with: Option<HydrateWith>,
 }
 
 impl EnumNewtypeAttrs {
-    pub(crate) fn from_field(
-        field: &syn::Field,
-    ) -> Result<Option<Self>, error::InvalidEnumNewtypeFieldAttrs> {
-        let Some(kvs) = autosurgeon_kvs(field.attrs.iter())? else {
-            return Ok(None)
-        };
-        let hydrate_with = HydrateWith::from_kvs(kvs.iter())?;
-        let reconcile_with = kvs.iter().try_fold(None, |rec, kv| {
-            if kv.path.is_ident("reconcile_with") {
-                if rec.is_some() {
-                    Err(InvalidEnumNewtypeFieldAttrs::Multiple)
-                } else {
-                    match &kv.lit {
-                        syn::Lit::Str(s) => {
-                            Ok(Some(syn::Ident::new(&s.value(), Span::mixed_site())))
-                        }
-                        other => Err(InvalidEnumNewtypeFieldAttrs::InvalidFormat(other.span())),
-                    }
-                }
-            } else if kv.path.is_ident("reconcile") {
-                Err(InvalidEnumNewtypeFieldAttrs::Reconcile)
-            } else {
-                Ok(rec)
+    pub(crate) fn from_field(field: &syn::Field) -> Result<Option<Self>, syn::parse::Error> {
+        let mut result = None;
+        for attr in &field.attrs {
+            if attr.path().is_ident("autosurgeon") && result.is_some() {
+                return Err(syn::parse::Error::new(
+                    attr.span(),
+                    "duplicate autosurgeon attribute",
+                ));
             }
-        })?;
-        Ok(Some(Self {
-            hydrate_with,
-            reconcile_with,
-        }))
+            let attrs = AutosurgeonAttrs::from_attr(attr)?;
+            let hydrate_with = HydrateWith::from_attrs(&attrs)?;
+            if attrs.reconcile.is_some() {
+                return Err(syn::parse::Error::new(
+                    attrs.span,
+                    "cannot specify 'reconcile' on enum newtype fields",
+                ));
+            }
+            let reconcile_with = attrs.reconcile_with;
+            result = Some(EnumNewtypeAttrs {
+                hydrate_with,
+                reconcile_with,
+            });
+        }
+        Ok(result)
     }
 
-    pub(crate) fn reconcile_with(&self) -> Option<&syn::Ident> {
+    pub(crate) fn reconcile_with(&self) -> Option<&syn::Path> {
         self.reconcile_with.as_ref()
     }
 }
 
-pub(crate) mod error {
-    use proc_macro2::Span;
+struct AutosurgeonAttrs {
+    span: proc_macro2::Span,
+    reconcile: Option<syn::Path>,
+    reconcile_with: Option<syn::Path>,
+    with: Option<syn::Path>,
+    hydrate: Option<syn::Path>,
+}
 
-    #[derive(Debug, thiserror::Error)]
-    pub(super) enum InvalidAutosurgeonKvs {
-        #[error(transparent)]
-        Parse(#[from] syn::Error),
-        #[error("multiple autosurgeon attrs")]
-        Multiple,
-        #[error("invalid format")]
-        InvalidFormat(Span),
-    }
-
-    #[derive(Debug, thiserror::Error)]
-    pub(crate) enum InvalidReconcileWith {
-        #[error("only a single 'reconcile=' is allowed")]
-        MultipleReconcile,
-        #[error("only a single 'reconcile_with=' is allowed")]
-        MultipleReconcileWith,
-        #[error("only a single 'with=' is allowed")]
-        MultipleWith,
-        #[error("the value of a 'reconcile=' must be a string")]
-        ReconcileNotString(Span),
-        #[error("the value of 'with=' must be a string")]
-        WithNotString(Span),
-        #[error("the value of a 'reconcile=' must be a string representing a path")]
-        ReconcileNotPath(Span),
-        #[error("the value of 'with=' must be a string representing a path")]
-        WithNotPath(Span),
-        #[error("you cann only use one of 'reconcile=', 'reconcile_with=', and 'with='")]
-        ReconcileAndReconcileWith,
-    }
-
-    impl InvalidReconcileWith {
-        pub(crate) fn span(&self) -> Option<Span> {
-            match self {
-                Self::MultipleReconcile => None,
-                Self::MultipleReconcileWith => None,
-                Self::MultipleWith => None,
-                Self::ReconcileNotString(s) => Some(*s),
-                Self::WithNotString(s) => Some(*s),
-                Self::ReconcileNotPath(s) => Some(*s),
-                Self::WithNotPath(s) => Some(*s),
-                Self::ReconcileAndReconcileWith => None,
+impl AutosurgeonAttrs {
+    fn from_attr(attr: &syn::Attribute) -> syn::parse::Result<AutosurgeonAttrs> {
+        let mut result = AutosurgeonAttrs {
+            span: attr.span(),
+            reconcile: None,
+            reconcile_with: None,
+            with: None,
+            hydrate: None,
+        };
+        attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident("reconcile") {
+                let value = meta.value()?;
+                let s: syn::LitStr = value.parse()?;
+                result.reconcile = Some(s.parse()?);
+            } else if meta.path.is_ident("reconcile_with") {
+                let value = meta.value()?;
+                let s: syn::LitStr = value.parse()?;
+                result.reconcile_with = Some(s.parse()?);
+            } else if meta.path.is_ident("with") {
+                let value = meta.value()?;
+                let s: syn::LitStr = value.parse()?;
+                result.with = Some(s.parse()?);
+            } else if meta.path.is_ident("hydrate") {
+                let value = meta.value()?;
+                let s: syn::LitStr = value.parse()?;
+                result.hydrate = Some(s.parse()?);
+            } else {
+                return Err(meta.error("unknown attribute"));
             }
-        }
-    }
-
-    #[derive(Debug, thiserror::Error)]
-    pub(crate) enum InvalidHydrateWith {
-        #[error("only a single 'hydrate=' is allowed")]
-        MultipleHydrate,
-        #[error("only a single 'with=' is allowed")]
-        MultipleWith,
-        #[error("you cann only use one of 'hydrate=', or 'with='")]
-        HydrateAndWith,
-        #[error("the value of a 'hydrate=' or 'with=' must be a string")]
-        HydrateNotString(Span),
-        #[error("the value of a 'reconcile=' must be a string representing a path")]
-        HydrateNotPath(Span),
-        #[error("the value of 'with=' must be a string representing a path")]
-        WithNotPath(Span),
-    }
-
-    impl InvalidHydrateWith {
-        fn span(&self) -> Option<Span> {
-            match self {
-                Self::MultipleHydrate => None,
-                Self::MultipleWith => None,
-                Self::HydrateAndWith => None,
-                Self::HydrateNotString(s) => Some(*s),
-                Self::HydrateNotPath(s) => Some(*s),
-                Self::WithNotPath(s) => Some(*s),
-            }
-        }
-    }
-
-    #[derive(Debug, thiserror::Error)]
-    pub(crate) enum InvalidContainerAttrs {
-        #[error(transparent)]
-        Parse(#[from] syn::Error),
-        #[error("invalid reconcile attrs: {}", 0)]
-        Reconcile(#[from] InvalidReconcileWith),
-        #[error("invalid hydrate attrs: {}", 0)]
-        Hydrate(#[from] InvalidHydrateWith),
-        #[error("invalid format")]
-        InvalidFormat(Span),
-        #[error("multiple autosurgeon attrs")]
-        Multiple,
-    }
-
-    impl From<InvalidAutosurgeonKvs> for InvalidContainerAttrs {
-        fn from(e: InvalidAutosurgeonKvs) -> Self {
-            match e {
-                InvalidAutosurgeonKvs::Parse(p) => Self::Parse(p),
-                InvalidAutosurgeonKvs::Multiple => Self::Multiple,
-                InvalidAutosurgeonKvs::InvalidFormat(s) => Self::InvalidFormat(s),
-            }
-        }
-    }
-
-    impl InvalidContainerAttrs {
-        pub(crate) fn span(&self) -> Option<Span> {
-            match self {
-                Self::Parse(e) => Some(e.span()),
-                Self::Reconcile(e) => e.span(),
-                Self::Hydrate(e) => e.span(),
-                Self::InvalidFormat(s) => Some(*s),
-                Self::Multiple => None,
-            }
-        }
-    }
-
-    #[derive(Debug, thiserror::Error)]
-    pub(crate) enum InvalidFieldAttrs {
-        #[error(transparent)]
-        Parse(#[from] syn::Error),
-        #[error("invalid reconcile attrs: {}", 0)]
-        Reconcile(#[from] InvalidReconcileWith),
-        #[error("invalid hydrate attrs: {}", 0)]
-        Hydrate(#[from] InvalidHydrateWith),
-        #[error("invalid format")]
-        InvalidFormat(Span),
-        #[error("multiple autosurgeon attrs")]
-        Multiple,
-    }
-
-    impl From<InvalidAutosurgeonKvs> for InvalidFieldAttrs {
-        fn from(e: InvalidAutosurgeonKvs) -> Self {
-            match e {
-                InvalidAutosurgeonKvs::Parse(p) => Self::Parse(p),
-                InvalidAutosurgeonKvs::Multiple => Self::Multiple,
-                InvalidAutosurgeonKvs::InvalidFormat(s) => Self::InvalidFormat(s),
-            }
-        }
-    }
-
-    impl InvalidFieldAttrs {
-        pub(crate) fn span(&self) -> Option<Span> {
-            match self {
-                Self::Parse(e) => Some(e.span()),
-                Self::Reconcile(e) => e.span(),
-                Self::Hydrate(e) => e.span(),
-                Self::InvalidFormat(s) => Some(*s),
-                Self::Multiple => None,
-            }
-        }
-    }
-
-    #[derive(Debug, thiserror::Error)]
-    pub(crate) enum InvalidEnumNewtypeFieldAttrs {
-        #[error(transparent)]
-        Parse(syn::Error),
-        #[error("multiple autosurgeon attrs")]
-        Multiple,
-        #[error("invalid format")]
-        InvalidFormat(Span),
-        #[error(transparent)]
-        HydrateWith(#[from] InvalidHydrateWith),
-        #[error("cannot use 'reconcile=' with an enum newtype, use 'reconcile_with=' or 'with='")]
-        Reconcile,
-    }
-
-    impl From<InvalidAutosurgeonKvs> for InvalidEnumNewtypeFieldAttrs {
-        fn from(e: InvalidAutosurgeonKvs) -> Self {
-            match e {
-                InvalidAutosurgeonKvs::Parse(p) => Self::Parse(p),
-                InvalidAutosurgeonKvs::Multiple => Self::Multiple,
-                InvalidAutosurgeonKvs::InvalidFormat(s) => Self::InvalidFormat(s),
-            }
-        }
-    }
-
-    impl InvalidEnumNewtypeFieldAttrs {
-        pub(crate) fn span(&self) -> Option<Span> {
-            match self {
-                Self::Parse(e) => Some(e.span()),
-                Self::Multiple => None,
-                Self::InvalidFormat(s) => Some(*s),
-                Self::HydrateWith(e) => e.span(),
-                Self::Reconcile => None,
-            }
-        }
+            Ok(())
+        })?;
+        Ok(result)
     }
 }
