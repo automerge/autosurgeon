@@ -1,3 +1,35 @@
+## `0.5.1`
+
+* Add `Clone` for `Text` and `Counter`
+
+## `0.5.0`
+
+* Add a `with=` adapter for maps which have keys that implement `FromStr` and `ToString`
+* Update to `automerge` 4.0
+
+## `0.4.0`
+
+* Delete old keys when reconciling a new enum variant which has different keys
+  to the previous variant
+
+## `0.3.2`
+
+* Fix a bug where the code generated for the `Reconcile` implementation for
+  enum variants didn't include the full crate path for `autosurgeon`
+
+## `0.3.1`
+
+* Implement `Hydrate` for `Box<T> where T: Hydrate`
+
+## `0.3`
+
+* Update to `automerge` 3.0
+
+## `0.2.2
+
+* Fixed a bug where the wrong key type was generated for enums with a variant
+  with one field and a variant with multiple fields
+
 ## `0.2.1`
 
 * Add `Hydrate` for HashMap and BTreeMap
