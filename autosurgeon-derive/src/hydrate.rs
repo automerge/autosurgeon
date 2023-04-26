@@ -82,10 +82,7 @@ fn on_struct(
             let fields = fields
                 .named
                 .iter()
-                .map(|field| {
-                    named_field::NamedField::new(field, field.ident.as_ref().unwrap())
-                        .map_err(|e| error::DeriveError::InvalidFieldAttrs(e, field.clone()))
-                })
+                .map(|field| named_field::NamedField::new(field, field.ident.as_ref().unwrap()))
                 .collect::<Result<Vec<_>, _>>()?;
             let the_impl = gen_named_struct_impl(name, &fields);
 
@@ -252,9 +249,7 @@ fn gen_newtype_struct_wrapper(
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     let field = fields.unnamed.first().unwrap();
-    let attrs = attrs::Field::from_field(field)
-        .map_err(|e| error::DeriveError::InvalidFieldAttrs(e, field.clone()))?
-        .unwrap_or_default();
+    let attrs = attrs::Field::from_field(field)?.unwrap_or_default();
     let ty = &input.ident;
 
     let inner_ty = &field.ty;
@@ -302,10 +297,7 @@ fn gen_tuple_struct_wrapper(
         .unnamed
         .iter()
         .enumerate()
-        .map(|(i, f)| {
-            unnamed_field::UnnamedField::new(f, i)
-                .map_err(|e| error::DeriveError::InvalidFieldAttrs(e, f.clone()))
-        })
+        .map(|(i, f)| unnamed_field::UnnamedField::new(f, i))
         .collect::<Result<Vec<_>, _>>()?;
 
     let obj_ident = syn::Ident::new("obj", Span::mixed_site());
@@ -326,14 +318,11 @@ fn gen_tuple_struct_wrapper(
 
 mod error {
     use proc_macro2::Span;
-    use syn::spanned::Spanned;
-
-    use crate::attrs;
 
     #[derive(Debug, thiserror::Error)]
     pub(crate) enum DeriveError {
         #[error("{0}")]
-        InvalidFieldAttrs(attrs::error::InvalidFieldAttrs, syn::Field),
+        InvalidFieldAttrs(#[from] syn::parse::Error),
         #[error("cannot derive hydrate for unit struct")]
         HydrateForUnit,
     }
@@ -341,7 +330,7 @@ mod error {
     impl DeriveError {
         pub(crate) fn span(&self) -> Option<Span> {
             match self {
-                Self::InvalidFieldAttrs(e, f) => Some(e.span().unwrap_or_else(|| f.span())),
+                Self::InvalidFieldAttrs(e) => Some(e.span()),
                 Self::HydrateForUnit => None,
             }
         }

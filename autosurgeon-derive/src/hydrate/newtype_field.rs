@@ -10,9 +10,7 @@ pub(crate) struct NewtypeField<'a> {
 }
 
 impl<'a> NewtypeField<'a> {
-    pub(crate) fn from_field(
-        field: &'a syn::Field,
-    ) -> Result<Self, attrs::error::InvalidFieldAttrs> {
+    pub(crate) fn from_field(field: &'a syn::Field) -> Result<Self, syn::parse::Error> {
         let attrs = attrs::Field::from_field(field)?.unwrap_or_default();
         Ok(Self { field, attrs })
     }

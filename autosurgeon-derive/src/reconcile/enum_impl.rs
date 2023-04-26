@@ -45,11 +45,7 @@ impl<'a> TryFrom<&'a syn::Variant> for Variant<'a> {
                     Ok(Self::NewType {
                         name: &v.ident,
                         inner_ty: &fields.unnamed.first().unwrap().ty,
-                        attrs: attrs::EnumNewtypeAttrs::from_field(field)
-                            .map_err(|e| {
-                                DeriveError::InvalidEnumNewtypeFieldAttrs(e, field.clone())
-                            })?
-                            .unwrap_or_default(),
+                        attrs: attrs::EnumNewtypeAttrs::from_field(field)?.unwrap_or_default(),
                     })
                 } else {
                     Ok(Self::Unnamed {
@@ -637,8 +633,7 @@ impl<'a> VariantField for EnumNamedField<'a> {
 
 impl<'a> EnumNamedField<'a> {
     fn named_field(&self) -> Result<NamedField<'a>, DeriveError> {
-        NamedField::new(Cow::Borrowed(self.name), self.field)
-            .map_err(|e| DeriveError::InvalidFieldAttrs(e, self.field.clone()))
+        Ok(NamedField::new(Cow::Borrowed(self.name), self.field)?)
     }
 }
 
@@ -704,9 +699,7 @@ impl<'a> VariantWithFields for &'a syn::FieldsUnnamed {
             .iter()
             .enumerate()
             .map(|(idx, field)| {
-                let attrs = attrs::Field::from_field(field)
-                    .map_err(|e| DeriveError::InvalidFieldAttrs(e, field.clone()))?
-                    .unwrap_or_default();
+                let attrs = attrs::Field::from_field(field)?.unwrap_or_default();
                 Ok(EnumUnnamedField { field, idx, attrs })
             })
             .collect::<Result<Vec<_>, _>>()
