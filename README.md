@@ -1,6 +1,6 @@
 # `autosurgeon`
 
-[![Build](https://github.com/alexjg/autosurgeon/actions/workflows/ci.yaml/badge.svg)](https://github.com/alexjg/autosurgeon/actions/workflows/ci.yaml)
+[![Build](https://github.com/automerge/autosurgeon/actions/workflows/ci.yaml/badge.svg)](https://github.com/automerge/autosurgeon/actions/workflows/ci.yaml)
 [![crates](https://img.shields.io/crates/v/autosurgeon)](https://crates.io/crates/autosurgeon)
 [![docs](https://img.shields.io/docsrs/autosurgeon?color=blue)](https://docs.rs/autosurgeon/latest/autosurgeon/)
 
