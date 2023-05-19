@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::Reconcile;
 
@@ -39,7 +39,13 @@ pub(crate) fn reconcile_map_impl<
     mut reconciler: R,
 ) -> Result<(), R::Error> {
     let mut m = reconciler.map()?;
+    let old_keys = m
+        .entries()
+        .map(|(k, _)| k.to_string())
+        .collect::<HashSet<_>>();
+    let mut incoming_keys = HashSet::new();
     for (k, val) in items {
+        incoming_keys.insert(k.as_ref().to_string());
         if let LoadKey::Found(new_key) = val.key() {
             if let LoadKey::Found(existing_key) = m.hydrate_entry_key::<V, _>(&k)? {
                 if existing_key != new_key {
@@ -49,6 +55,10 @@ pub(crate) fn reconcile_map_impl<
             }
         }
         m.put(k.as_ref(), val)?;
+    }
+    let delenda = old_keys.difference(&incoming_keys);
+    for k in delenda {
+        m.delete(k)?;
     }
     Ok(())
 }
@@ -77,6 +87,16 @@ mod tests {
             doc.document(),
             map! {
                 "key1" => { list! { {"one"}, {"two"} }},
+                "key2" => { list! { {"three"} }},
+            }
+        );
+
+        // Added the following:
+        map.remove("key1");
+        reconcile(&mut doc, &map).unwrap();
+        assert_doc!(
+            doc.document(),
+            map! {
                 "key2" => { list! { {"three"} }},
             }
         );
