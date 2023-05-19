@@ -1,3 +1,9 @@
+## `0.7.1`
+
+No changes, this release is the same as 0.7.0, but I (Alex) published the wrong
+code to crates.io for 0.7.0 due to being quite sleepy so I had to yank and 
+publish 0.7.1
+
 ## `0.7.0`
 
 * BREAKING: The `Reconcile` implementation for maps now removes keys from the
