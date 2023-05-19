@@ -1,3 +1,8 @@
+## `0.7.0`
+
+* BREAKING: The `Reconcile` implementation for maps now removes keys from the
+  document which are not part of the incoming data
+
 ## `0.6.0`
 
 * BREAKING: Add a `Reconcile::Key` to the `Reconcile` implementation for
