@@ -75,7 +75,8 @@ impl Text {
     /// # Arguments
     ///
     /// * pos - The index to start the splice at
-    /// * del - The number of characters to delete
+    /// * del - The number of characters to delete. This can be negative to indicate deleting `del`
+    ///         characters preceding `pos`
     /// * insert - The characters to insert
     ///
     /// The `pos` index uses the same logic as [`String::replace_range`]. This means
@@ -97,11 +98,18 @@ impl Text {
     /// value.splice(i, 0, "amazing ");
     /// assert_eq!(value.as_str(), "some amazing value");
     /// ```
-    pub fn splice<S: AsRef<str>>(&mut self, pos: usize, del: usize, insert: S) {
+    pub fn splice<S: AsRef<str>>(&mut self, pos: usize, del: isize, insert: S) {
+        let start = if del < 0 {
+            pos.saturating_sub(del.unsigned_abs())
+        } else {
+            pos
+        };
         match &mut self.0 {
-            State::Fresh(v) => v.replace_range(pos..(pos + del), insert.as_ref()),
+            State::Fresh(v) => {
+                v.replace_range(start..(start + del.unsigned_abs()), insert.as_ref())
+            }
             State::Rehydrated { value, edits, .. } => {
-                value.replace_range(pos..(pos + del), insert.as_ref());
+                value.replace_range(start..(start + del.unsigned_abs()), insert.as_ref());
                 edits.push(Splice {
                     pos,
                     delete: del,
@@ -138,7 +146,7 @@ enum State {
 #[derive(Clone)]
 struct Splice {
     pos: usize,
-    delete: usize,
+    delete: isize,
     insert: String,
 }
 

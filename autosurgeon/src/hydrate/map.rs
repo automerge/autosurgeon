@@ -3,7 +3,7 @@ use std::{
     hash::Hash,
 };
 
-use automerge::ObjType;
+use automerge::{self as am, ObjType};
 
 use crate::{Hydrate, HydrateError};
 
@@ -50,7 +50,7 @@ where
     match obj_type {
         ObjType::Map | ObjType::Table => doc
             .map_range(obj.clone(), ..)
-            .map(move |(key, _, _)| {
+            .map(move |am::iter::MapRangeItem { key, .. }| {
                 let val = V::hydrate(doc, obj, key.into())?;
                 let key_parsed: K = extract_key(key)?;
                 Ok((key_parsed, val))
