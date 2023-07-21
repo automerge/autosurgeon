@@ -460,7 +460,6 @@ impl<'a> EnumKey<'a> {
         let key_type_name = self.type_name();
 
         let outer_id_ident = syn::Ident::new("outer_id", Span::mixed_site());
-        let inner_id_ident = syn::Ident::new("inner_id", Span::mixed_site());
 
         let non_unit_match_arms = self
             .variants
@@ -492,7 +491,7 @@ impl<'a> EnumKey<'a> {
                         _ => Ok(autosurgeon::reconcile::LoadKey::KeyNotFound)
                     },
                     Value::Object(ObjType::Map) => {
-                        let Some((discriminant_str, inner_ty, #inner_id_ident)) = doc.map_range(&#outer_id_ident, ..).next() else {
+                        let Some(automerge::iter::MapRangeItem{key: discriminant_str, ..}) = doc.map_range(&#outer_id_ident, ..).next() else {
                             return Ok(autosurgeon::reconcile::LoadKey::KeyNotFound);
                         };
                         match discriminant_str {

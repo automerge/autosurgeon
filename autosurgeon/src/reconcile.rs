@@ -215,7 +215,7 @@ pub trait TextReconciler {
     fn splice<S: AsRef<str>>(
         &mut self,
         pos: usize,
-        delete: usize,
+        delete: isize,
         insert: S,
     ) -> Result<(), Self::Error>;
     fn heads(&self) -> &[automerge::ChangeHash];
@@ -748,14 +748,16 @@ impl<'a, D: Doc> MapReconciler for InMap<'a, D> {
 }
 
 struct InMapEntries<'a> {
-    map_range: automerge::MapRange<'a, RangeFull>,
+    map_range: automerge::iter::MapRange<'a, RangeFull>,
 }
 
 impl<'a> Iterator for InMapEntries<'a> {
     type Item = (&'a str, automerge::Value<'a>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.map_range.next().map(|(key, val, _)| (key, val))
+        self.map_range
+            .next()
+            .map(|automerge::iter::MapRangeItem { key, value, .. }| (key, value))
     }
 }
 
@@ -766,14 +768,14 @@ struct InSeq<'a, D> {
 }
 
 struct ItemsInSeq<'a> {
-    list_range: automerge::ListRange<'a, RangeFull>,
+    list_range: automerge::iter::ListRange<'a, RangeFull>,
 }
 
 impl<'a> Iterator for ItemsInSeq<'a> {
     type Item = automerge::Value<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.list_range.next().map(|i| i.1)
+        self.list_range.next().map(|i| i.value)
     }
 }
 
@@ -848,7 +850,7 @@ impl<'a, D: Doc> TextReconciler for InText<'a, D> {
     fn splice<S: AsRef<str>>(
         &mut self,
         pos: usize,
-        delete: usize,
+        delete: isize,
         text: S,
     ) -> Result<(), Self::Error> {
         self.doc
