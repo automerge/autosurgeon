@@ -1,3 +1,8 @@
+## `0.8.0`
+
+* Upgrade to Automerge 0.5.0
+* Allow `TextReconciler::splice_text` to take a negative `del`
+
 ## `0.7.1`
 
 No changes, this release is the same as 0.7.0, but I (Alex) published the wrong
