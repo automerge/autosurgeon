@@ -27,7 +27,8 @@ impl<'a> NewtypeField<'a> {
                 let #target = #hydrate_func(doc, obj, #prop_ident.into())?;
             }
         } else {
-            quote_spanned! {self.field.span() =>
+            let span = self.field.span();
+            quote_spanned! {span=>
                 let #target = autosurgeon::hydrate_prop(doc, obj, #prop_ident)?;
             }
         }

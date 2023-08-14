@@ -57,7 +57,7 @@ pub fn derive_reconcile(input: proc_macro::TokenStream) -> proc_macro::TokenStre
             get_key,
         }) => {
             let key_lifetime = syn::Lifetime::new("'k", Span::mixed_site());
-            let key_type_def = key_type_def.unwrap_or_else(|| quote! {});
+            let key_type_def = key_type_def.unwrap_or_else(|| quote!());
             let key_type = key_type.unwrap_or(quote! {
                 type Key<#key_lifetime> = autosurgeon::reconcile::NoKey;
             });
@@ -214,14 +214,14 @@ fn newtype_struct_impl(field: &syn::Field) -> Result<ReconcileImpl, error::Deriv
             key_type: reconcile_with.key_type(),
             key_type_def: None,
             hydrate_key: reconcile_with.hydrate_key(),
-            get_key: reconcile_with.get_key(quote! {&self.0}),
+            get_key: reconcile_with.get_key(quote!(&self.0)),
         })
     } else {
         Ok(ReconcileImpl {
-            reconcile: quote_spanned! {field.span() => self.0.reconcile(reconciler)},
-            key_type: Some(
-                quote! { type Key<#key_lifetime> = <#field_ty as Reconcile>::Key<#key_lifetime>; },
-            ),
+            reconcile: quote_spanned!(field.span()=> self.0.reconcile(reconciler)),
+            key_type: Some(quote! {
+                type Key<#key_lifetime> = <#field_ty as Reconcile>::Key<#key_lifetime>;
+            }),
             key_type_def: None,
             hydrate_key: Some(quote! {
                 fn hydrate_key<#key_lifetime, D: autosurgeon::ReadDoc>(

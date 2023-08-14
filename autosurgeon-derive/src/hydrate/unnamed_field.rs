@@ -29,13 +29,16 @@ impl UnnamedField {
                 let #name = #function_name(doc, &#obj_ident, #idx.into())?;
             }
         } else {
-            quote_spanned!(self.field.span() => let #name = autosurgeon::hydrate_prop(doc, &#obj_ident, #idx)?;)
+            let span = self.field.span();
+            quote_spanned! {span=>
+                let #name = autosurgeon::hydrate_prop(doc, &#obj_ident, #idx)?;
+            }
         }
     }
 
     pub(crate) fn initializer(&self) -> TokenStream {
         let name = self.name();
-        quote! { #name }
+        quote!(#name)
     }
 
     fn name(&self) -> syn::Ident {

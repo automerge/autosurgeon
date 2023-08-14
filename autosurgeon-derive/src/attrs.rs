@@ -93,7 +93,7 @@ impl ReconcileWith {
                         module_name,
                     )
                 } else {
-                    let func = quote! {#module_name::reconcile};
+                    let func = quote!(#module_name::reconcile);
                     crate::reconcile::field_wrapper::nokey_wrapper(ty, wrapper_tyname, func)
                 }
             }
@@ -105,7 +105,9 @@ impl ReconcileWith {
             Self::Function { .. } => None,
             Self::Module { module_name, .. } | Self::With { module_name, .. } => {
                 let k = syn::Lifetime::new("'k", Span::mixed_site());
-                Some(quote! { type Key<#k> = #module_name::Key<#k>; })
+                Some(quote! {
+                    type Key<#k> = #module_name::Key<#k>;
+                })
             }
         }
     }
@@ -171,10 +173,8 @@ impl HydrateWith {
 
     pub(crate) fn hydrate_with(&self) -> TokenStream {
         match self {
-            Self::Function { function_name } => quote! { #function_name },
-            Self::Module { module_name } => quote! {
-                #module_name::hydrate
-            },
+            Self::Function { function_name } => quote!(#function_name),
+            Self::Module { module_name } => quote!(#module_name::hydrate),
         }
     }
 }

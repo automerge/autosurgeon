@@ -52,26 +52,26 @@ pub(super) trait Field {
                 let value = quote!(#wrapper_tyname(&#accessor));
                 (wrapper, value)
             }
-            None => (quote! {}, quote!(&#accessor)),
+            None => (quote!(), quote!(&#accessor)),
         };
         let get = match reconciler_ty {
-            ReconcilerType::Map => quote_spanned!(self.span() => #reconciler_ident.entry(#prop)),
-            ReconcilerType::Seq => quote_spanned!(self.span() => #reconciler_ident.get(#prop)?),
+            ReconcilerType::Map => quote_spanned!(self.span()=> #reconciler_ident.entry(#prop)),
+            ReconcilerType::Seq => quote_spanned!(self.span()=> #reconciler_ident.get(#prop)?),
         };
         let insert = match reconciler_ty {
             ReconcilerType::Seq => {
-                quote_spanned!(self.span() => #reconciler_ident.insert(#prop, #value)?;)
+                quote_spanned!(self.span()=> #reconciler_ident.insert(#prop, #value)?;)
             }
             ReconcilerType::Map => {
-                quote_spanned!(self.span() => #reconciler_ident.put(#prop, #value)?;)
+                quote_spanned!(self.span()=> #reconciler_ident.put(#prop, #value)?;)
             }
         };
         let update = match reconciler_ty {
             ReconcilerType::Seq => {
-                quote_spanned!(self.span() => #reconciler_ident.set(#prop, #value)?;)
+                quote_spanned!(self.span()=> #reconciler_ident.set(#prop, #value)?;)
             }
             ReconcilerType::Map => {
-                quote_spanned!(self.span() => #reconciler_ident.put(#prop, #value)?;)
+                quote_spanned!(self.span()=> #reconciler_ident.put(#prop, #value)?;)
             }
         };
         quote! {
@@ -134,12 +134,12 @@ impl<'a> Field for NamedField<'a> {
 
     fn as_prop(&self) -> TokenStream {
         let propname = &self.name.to_string();
-        quote! {#propname}
+        quote!(#propname)
     }
 
     fn accessor(&self) -> TokenStream {
         let propname = &self.name;
-        quote! {self.#propname}
+        quote!(self.#propname)
     }
 
     fn name(&self) -> syn::Ident {
@@ -197,14 +197,12 @@ impl<'a> Field for TupleField<'a> {
 
     fn as_prop(&self) -> TokenStream {
         let idx = self.index;
-        quote! {#idx}
+        quote!(#idx)
     }
 
     fn accessor(&self) -> TokenStream {
         let idx = syn::Index::from(self.index);
-        quote! {
-            self.#idx
-        }
+        quote!(self.#idx)
     }
 
     fn name(&self) -> syn::Ident {
@@ -277,7 +275,9 @@ impl<'a, F: Field + Clone> KeyField<'a, F> {
     fn key_type_def(&self) -> proc_macro2::TokenStream {
         let ty = &self.ty;
         let lifetime = syn::Lifetime::new("'k", Span::mixed_site());
-        quote! {type Key<#lifetime> = std::borrow::Cow<#lifetime, #ty>;}
+        quote! {
+            type Key<#lifetime> = std::borrow::Cow<#lifetime, #ty>;
+        }
     }
 
     pub(super) fn key_type(&self) -> &syn::Type {
@@ -350,7 +350,7 @@ impl<'a, F: Field + Clone> KeyField<'a, F> {
 
     pub(super) fn prop(&self) -> TokenStream {
         let key_prop = self.field.as_prop();
-        quote! {#key_prop}
+        quote!(#key_prop)
     }
 
     fn get_key(&self) -> proc_macro2::TokenStream {

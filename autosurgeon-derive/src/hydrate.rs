@@ -254,7 +254,7 @@ fn gen_newtype_struct_wrapper(
 
     let inner_ty = &field.ty;
 
-    let inner_ty = quote_spanned!(field.span() => #inner_ty);
+    let inner_ty = quote_spanned!(field.span()=> #inner_ty);
 
     if let Some(hydrate_with) = attrs.hydrate_with().map(|h| h.hydrate_with()) {
         Ok(quote! {
