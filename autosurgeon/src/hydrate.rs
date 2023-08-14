@@ -135,9 +135,14 @@ pub fn hydrate_path<'a, D: ReadDoc, H: Hydrate, P: IntoIterator<Item = Prop<'a>>
             if obj == &automerge::ROOT {
                 return Ok(Some(hydrate(doc)?));
             } else {
-                let Some(Parent{obj: parent_obj, prop: parent_prop, ..}) = doc.parents(obj)?.next() else {
-                return Ok(None)
-            };
+                let Some(Parent {
+                    obj: parent_obj,
+                    prop: parent_prop,
+                    ..
+                }) = doc.parents(obj)?.next()
+                else {
+                    return Ok(None);
+                };
                 return hydrate_prop(doc, parent_obj, parent_prop);
             }
         }

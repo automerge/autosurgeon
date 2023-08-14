@@ -71,7 +71,9 @@ impl<'a> Variant<'a> {
         match self {
             Self::Unit { name } => {
                 let name_string = name.to_string();
-                Ok(quote! { Self::#name => reconciler.str(#name_string) })
+                Ok(quote! {
+                    Self::#name => reconciler.str(#name_string)
+                })
             }
             Self::NewType {
                 name,
@@ -81,7 +83,7 @@ impl<'a> Variant<'a> {
                 let name_string = name.to_string();
                 let ty = inner_ty;
                 let reconciler = attrs.reconcile_with().map(|reconcile_with| {
-                    quote!{
+                    quote! {
                         struct ___EnumNewtypeVisitor<'a>(&'a #ty);
                         impl<'a> autosurgeon::Reconcile for ___EnumNewtypeVisitor<'a> {
                             type Key<'k> = #reconcile_with::Key<'a>;
@@ -102,7 +104,7 @@ impl<'a> Variant<'a> {
                         m.retain(|k, _| k == #name_string)?;
                         m.put(#name_string, ___EnumNewtypeVisitor(&v))?;
                     }
-                }).unwrap_or_else(|| quote!{
+                }).unwrap_or_else(|| quote! {
                     m.retain(|k, _| k == #name_string)?;
                     m.put(#name_string, v)?;
                 });
@@ -194,7 +196,7 @@ impl<'a> EnumKeyInnerType<'a> {
         key_lifetime: &syn::Lifetime,
     ) -> Option<TokenStream> {
         match self {
-            EnumKeyInnerType::Unit => Some(quote! { #variant_name}),
+            EnumKeyInnerType::Unit => Some(quote!(#variant_name)),
             EnumKeyInnerType::NewType(nt) => {
                 Some(if let Some(reconcile_with) = nt.attrs.reconcile_with() {
                     quote! {
@@ -236,10 +238,14 @@ impl<'a> EnumKeyInnerType<'a> {
             Self::NewType(t) => {
                 let prop = variant_name.to_string();
                 if let Some(reconcile_with) = t.attrs.reconcile_with() {
-                    quote! {Ok(#reconcile_with::hydrate_key(doc, &#obj_id_ident, #prop.into())?.map(#key_type_name::#variant_name)), }
+                    quote! {
+                        Ok(#reconcile_with::hydrate_key(doc, &#obj_id_ident, #prop.into())?.map(#key_type_name::#variant_name)),
+                    }
                 } else {
                     let t = t.ty;
-                    quote! {Ok(<#t as autosurgeon::Reconcile>::hydrate_key(doc, &#obj_id_ident, #prop.into())?.map(#key_type_name::#variant_name)), }
+                    quote! {
+                        Ok(<#t as autosurgeon::Reconcile>::hydrate_key(doc, &#obj_id_ident, #prop.into())?.map(#key_type_name::#variant_name)),
+                    }
                 }
             }
             Self::Struct(keyfield) => {
@@ -307,7 +313,7 @@ impl<'a> EnumKeyVariant<'a> {
         if EnumKeyInnerType::Unit == self.ty {
             let name = &self.name;
             let name_str = self.name.to_string();
-            let variant_name = quote! {#outer_name::#name};
+            let variant_name = quote!(#outer_name::#name);
             Some(quote! {
                 #name_str => Ok(autosurgeon::reconcile::LoadKey::Found(#variant_name)),
             })
@@ -423,11 +429,12 @@ impl<'a> EnumKey<'a> {
             .filter_map(|v| v.key_type_variant_def(&key_lifetime));
         let name = self.type_name();
         let name_with_lifetime = if self.has_lifetime() {
-            quote! {#name<#key_lifetime>}
+            quote!(#name<#key_lifetime>)
         } else {
-            quote! {#name}
+            quote!(#name)
         };
-        Some(quote_spanned! { Span::mixed_site() =>
+        let span = Span::mixed_site();
+        Some(quote_spanned! {span=>
             #[derive(Clone, PartialEq)]
             #[allow(clippy::derive_partial_eq_without_eq)]
             #vis enum #name_with_lifetime {
@@ -491,7 +498,11 @@ impl<'a> EnumKey<'a> {
                         _ => Ok(autosurgeon::reconcile::LoadKey::KeyNotFound)
                     },
                     Value::Object(ObjType::Map) => {
-                        let Some(automerge::iter::MapRangeItem{key: discriminant_str, ..}) = doc.map_range(&#outer_id_ident, ..).next() else {
+                        let Some(automerge::iter::MapRangeItem {
+                            key: discriminant_str,
+                            ..
+                        }) = doc.map_range(&#outer_id_ident, ..).next()
+                        else {
                             return Ok(autosurgeon::reconcile::LoadKey::KeyNotFound);
                         };
                         match discriminant_str {
@@ -510,9 +521,13 @@ impl<'a> EnumKey<'a> {
             let key_type = self.type_name();
             let k = syn::Lifetime::new("'k", Span::mixed_site());
             if self.has_lifetime() {
-                Some(quote! {type Key<#k> = #key_type<#k>;})
+                Some(quote! {
+                    type Key<#k> = #key_type<#k>;
+                })
             } else {
-                Some(quote! {type Key<#k> = #key_type;})
+                Some(quote! {
+                    type Key<#k> = #key_type;
+                })
             }
         } else {
             None
@@ -592,14 +607,12 @@ impl<'a> Field for EnumUnnamedField<'a> {
 
     fn as_prop(&self) -> TokenStream {
         let idx = self.idx;
-        quote! {#idx}
+        quote!(#idx)
     }
 
     fn accessor(&self) -> TokenStream {
         let name = self.name();
-        quote! {
-            self.#name
-        }
+        quote!(self.#name)
     }
 
     fn name(&self) -> syn::Ident {
@@ -737,11 +750,13 @@ fn enum_with_fields_variant<F: VariantWithFields>(
     let field_defs = fields.iter().map(|f| {
         let name = f.name();
         let ty = f.ty();
-        quote! {#name: &'__reconcile_visitor #ty}
+        quote! {
+            #name: &'__reconcile_visitor #ty
+        }
     });
     let matchers = fields.iter().map(|f| {
         let name = f.name();
-        quote! {#name}
+        quote!(#name)
     });
     let constructors = fields.iter().map(|f| f.name());
 

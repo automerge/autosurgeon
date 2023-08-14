@@ -32,12 +32,15 @@ impl<'a> NamedField<'a> {
                 let #name = #function_name(doc, &#obj_ident, #string_name.into())?;
             }
         } else {
-            quote_spanned!(self.field.span() => let #name = autosurgeon::hydrate_prop(doc, &#obj_ident, #string_name)?;)
+            let span = self.field.span();
+            quote_spanned! {span=>
+                let #name = autosurgeon::hydrate_prop(doc, &#obj_ident, #string_name)?;
+            }
         }
     }
 
     pub(crate) fn initializer(&self) -> TokenStream {
         let name = &self.name;
-        quote! {#name}
+        quote!(#name)
     }
 }
