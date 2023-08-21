@@ -13,7 +13,7 @@ proc_macro = true
 
 [dependencies]
 quote = "1.0.21"
-syn = { version = "2", features = ["full"] }
+syn = { version = "2", features = ["full", "extra-traits"] }
 proc-macro2 = "1.0"
 smol_str = { version = "^0.1.21" }
 thiserror = "1.0.37"
