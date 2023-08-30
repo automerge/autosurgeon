@@ -72,7 +72,7 @@ impl<'a> Variant<'a> {
             Self::Unit { name } => {
                 let name_string = name.to_string();
                 Ok(quote! {
-                    Self::#name => reconciler.str(#name_string)
+                    Self::#name => ::autosurgeon::Reconciler::str(&mut reconciler, #name_string)
                 })
             }
             Self::NewType {
@@ -85,35 +85,45 @@ impl<'a> Variant<'a> {
                 let reconciler = attrs.reconcile_with().map(|reconcile_with| {
                     quote! {
                         struct ___EnumNewtypeVisitor<'a>(&'a #ty);
-                        impl<'a> autosurgeon::Reconcile for ___EnumNewtypeVisitor<'a> {
+                        impl<'a> ::autosurgeon::Reconcile for ___EnumNewtypeVisitor<'a> {
                             type Key<'k> = #reconcile_with::Key<'a>;
-                            fn reconcile<R: autosurgeon::Reconciler>(&self, reconciler: R) -> Result<(), R::Error> {
+                            fn reconcile<R: ::autosurgeon::Reconciler>(
+                                &self,
+                                reconciler: R,
+                            ) -> ::std::result::Result<(), R::Error> {
                                 #reconcile_with::reconcile(self.0, reconciler)
                             }
-                            fn hydrate_key<'k, D: autosurgeon::ReadDoc>(
+                            fn hydrate_key<'k, D: ::autosurgeon::ReadDoc>(
                                 doc: &D,
-                                obj: &automerge::ObjId,
-                                prop: Prop<'_>,
-                            ) -> Result<autosurgeon::reconcile::LoadKey<Self::Key<'k>>, autosurgeon::ReconcileError> {
+                                obj: &::automerge::ObjId,
+                                prop: ::autosurgeon::Prop<'_>,
+                            ) -> ::std::result::Result<
+                                ::autosurgeon::reconcile::LoadKey<Self::Key<'k>>,
+                                ::autosurgeon::ReconcileError,
+                            > {
                                 #reconcile_with::hydrate_key(doc, obj, prop)
                             }
-                            fn key<'k>(&'k self) -> autosurgeon::reconcile::LoadKey<Self::Key<'k>> {
+                            fn key<'k>(
+                                &'k self,
+                            ) -> ::autosurgeon::reconcile::LoadKey<Self::Key<'k>> {
                                 #reconcile_with::key(self.0)
                             }
                         }
-                        m.retain(|k, _| k == #name_string)?;
-                        m.put(#name_string, ___EnumNewtypeVisitor(&v))?;
+                        ::autosurgeon::reconcile::MapReconciler::retain(&mut m, |k, _| k == #name_string)?;
+                        ::autosurgeon::reconcile::MapReconciler::put(&mut m, #name_string, ___EnumNewtypeVisitor(&v))?;
                     }
                 }).unwrap_or_else(|| quote! {
-                    m.retain(|k, _| k == #name_string)?;
-                    m.put(#name_string, v)?;
+                    ::autosurgeon::reconcile::MapReconciler::retain(
+                        &mut m,
+                        |k, _| k == #name_string,
+                    )?;
+                    ::autosurgeon::reconcile::MapReconciler::put(&mut m, #name_string, v)?;
                 });
                 Ok(quote! {
                      Self::#name(v) => {
-                        use autosurgeon::reconcile::MapReconciler;
-                        let mut m = #reconciler_ident.map()?;
+                        let mut m = ::autosurgeon::Reconciler::map(&mut #reconciler_ident)?;
                         #reconciler
-                        Ok(())
+                        ::std::result::Result::Ok(())
                     }
                 })
             }
@@ -150,42 +160,52 @@ impl<'a> EnumKeyInnerType<'a> {
         match self {
             Self::Unit => {
                 quote! {
-                    Self::#variant_name => autosurgeon::reconcile::LoadKey::Found(#key_type_name::#variant_name)
+                    Self::#variant_name => ::autosurgeon::reconcile::LoadKey::Found(
+                        #key_type_name::#variant_name,
+                    )
                 }
             }
             Self::NewType(k) => {
                 if let Some(reconcile_with) = k.attrs.reconcile_with() {
                     quote! {
-                        Self::#variant_name(inner) => #reconcile_with::key(inner).map(|k| #key_type_name::#variant_name(k))
+                        Self::#variant_name(inner) => {
+                            #reconcile_with::key(inner).map(|k| #key_type_name::#variant_name(k))
+                        }
                     }
                 } else {
                     let inner_ty = k.ty;
                     quote! {
-                        Self::#variant_name(inner) => <#inner_ty as Reconcile>::key(inner).map(|k| #key_type_name::#variant_name(k))
+                        Self::#variant_name(inner) => {
+                            <#inner_ty as ::autosurgeon::Reconcile>
+                                ::key(inner)
+                                .map(|k| #key_type_name::#variant_name(k))
+                        }
                     }
                 }
             }
             Self::Tuple(keyfield) => {
                 let before = (0..(keyfield.index())).map(|_| quote!("_"));
                 quote! {
-                    Self::#variant_name(#(#before)* v, ..) => autosurgeon::reconcile::LoadKey::Found(
-                        #key_type_name::#variant_name(std::borrow::Cow::Borrowed(v))
-                    )
+                    Self::#variant_name(#(#before)* v, ..) => {
+                        ::autosurgeon::reconcile::LoadKey::Found(
+                            #key_type_name::#variant_name(::std::borrow::Cow::Borrowed(v)),
+                        )
+                    }
                 }
             }
             Self::Struct(keyfield) => {
                 let fieldname = keyfield.name();
                 quote! {
-                    Self::#variant_name{#fieldname, ..} => autosurgeon::reconcile::LoadKey::Found(
-                        #key_type_name::#variant_name(std::borrow::Cow::Borrowed(#fieldname))
+                    Self::#variant_name{#fieldname, ..} => ::autosurgeon::reconcile::LoadKey::Found(
+                        #key_type_name::#variant_name(::std::borrow::Cow::Borrowed(#fieldname)),
                     )
                 }
             }
             Self::NoInnerKeyStruct => quote! {
-                Self::#variant_name{..} => autosurgeon::reconcile::LoadKey::NoKey
+                Self::#variant_name{..} => ::autosurgeon::reconcile::LoadKey::NoKey
             },
             Self::NoInnerKeyTuple => quote! {
-                Self::#variant_name(..) => autosurgeon::reconcile::LoadKey::NoKey
+                Self::#variant_name(..) => ::autosurgeon::reconcile::LoadKey::NoKey
             },
         }
     }
@@ -205,20 +225,20 @@ impl<'a> EnumKeyInnerType<'a> {
                 } else {
                     let inner = nt.ty;
                     quote! {
-                        #variant_name(<#inner as autosurgeon::Reconcile>::Key<#key_lifetime>)
+                        #variant_name(<#inner as ::autosurgeon::Reconcile>::Key<#key_lifetime>)
                     }
                 })
             }
             EnumKeyInnerType::Struct(keyfield) => {
                 let inner = keyfield.key_type();
                 Some(quote! {
-                    #variant_name(std::borrow::Cow<#key_lifetime, #inner>)
+                    #variant_name(::std::borrow::Cow<#key_lifetime, #inner>)
                 })
             }
             EnumKeyInnerType::Tuple(keyfield) => {
                 let inner = keyfield.key_type();
                 Some(quote! {
-                    #variant_name(std::borrow::Cow<#key_lifetime, #inner>)
+                    #variant_name(::std::borrow::Cow<#key_lifetime, #inner>)
                 })
             }
             EnumKeyInnerType::NoInnerKeyStruct | EnumKeyInnerType::NoInnerKeyTuple => None,
@@ -233,18 +253,34 @@ impl<'a> EnumKeyInnerType<'a> {
     ) -> TokenStream {
         match self {
             Self::Unit => quote! {
-                Ok(autosurgeon::reconcile::LoadKey::Found(#variant_name)),
+                ::std::result::Result::Ok(::autosurgeon::reconcile::LoadKey::Found(#variant_name)),
             },
             Self::NewType(t) => {
                 let prop = variant_name.to_string();
                 if let Some(reconcile_with) = t.attrs.reconcile_with() {
                     quote! {
-                        Ok(#reconcile_with::hydrate_key(doc, &#obj_id_ident, #prop.into())?.map(#key_type_name::#variant_name)),
+                        std::result::Result::Ok(
+                            #reconcile_with
+                                ::hydrate_key(
+                                    doc,
+                                    &#obj_id_ident,
+                                    ::std::convert::Into::into(#prop),
+                                )?
+                                .map(#key_type_name::#variant_name),
+                        ),
                     }
                 } else {
                     let t = t.ty;
                     quote! {
-                        Ok(<#t as autosurgeon::Reconcile>::hydrate_key(doc, &#obj_id_ident, #prop.into())?.map(#key_type_name::#variant_name)),
+                        std::result::Result::Ok(
+                            <#t as ::autosurgeon::Reconcile>
+                                ::hydrate_key(
+                                    doc,
+                                    &#obj_id_ident,
+                                    ::std::convert::Into::into(#prop),
+                                )?
+                                .map(#key_type_name::#variant_name),
+                        ),
                     }
                 }
             }
@@ -253,8 +289,13 @@ impl<'a> EnumKeyInnerType<'a> {
                 let key_prop = keyfield.prop();
                 quote! {
                     {
-                        let inner = autosurgeon::reconcile::hydrate_key(doc, &#obj_id_ident, #prop.into(), #key_prop.into())?;
-                        Ok(inner.map(#key_type_name::#variant_name))
+                        let inner = ::autosurgeon::reconcile::hydrate_key(
+                            doc,
+                            &#obj_id_ident,
+                            ::std::convert::Into::into(#prop),
+                            ::std::convert::Into::into(#key_prop),
+                        )?;
+                        ::std::result::Result::Ok(inner.map(#key_type_name::#variant_name))
                     },
                 }
             }
@@ -263,13 +304,20 @@ impl<'a> EnumKeyInnerType<'a> {
                 let key_prop = keyfield.prop();
                 quote! {
                     {
-                        let inner = autosurgeon::reconcile::hydrate_key(doc, &#obj_id_ident, #prop.into(), #key_prop.into())?;
-                        Ok(inner.map(#key_type_name::#variant_name))
+                        let inner = ::autosurgeon::reconcile::hydrate_key(
+                            doc,
+                            &#obj_id_ident,
+                            ::std::convert::Into::into(#prop),
+                            ::std::convert::Into::into(#key_prop),
+                        )?;
+                        ::std::result::Result::Ok(inner.map(#key_type_name::#variant_name))
                     },
                 }
             }
             Self::NoInnerKeyStruct | Self::NoInnerKeyTuple => {
-                quote!(Ok(autosurgeon::reconcile::LoadKey::NoKey),)
+                quote!(::std::result::Result::Ok(
+                    ::autosurgeon::reconcile::LoadKey::NoKey,
+                ),)
             }
         }
     }
@@ -315,7 +363,9 @@ impl<'a> EnumKeyVariant<'a> {
             let name_str = self.name.to_string();
             let variant_name = quote!(#outer_name::#name);
             Some(quote! {
-                #name_str => Ok(autosurgeon::reconcile::LoadKey::Found(#variant_name)),
+                #name_str => ::std::result::Result::Ok(
+                    ::autosurgeon::reconcile::LoadKey::Found(#variant_name),
+                ),
             })
         } else {
             None
@@ -435,7 +485,7 @@ impl<'a> EnumKey<'a> {
         };
         let span = Span::mixed_site();
         Some(quote_spanned! {span=>
-            #[derive(Clone, PartialEq)]
+            #[derive(::std::clone::Clone, ::std::cmp::PartialEq)]
             #[allow(clippy::derive_partial_eq_without_eq)]
             #vis enum #name_with_lifetime {
                 #(#variant_defs),*
@@ -451,7 +501,7 @@ impl<'a> EnumKey<'a> {
         let variant_match_arms = self.variants.iter().map(|v| v.get_key_match_arm(&name));
         let k = syn::Lifetime::new("'k", Span::mixed_site());
         Some(quote! {
-            fn key<#k>(&#k self) -> autosurgeon::reconcile::LoadKey<Self::Key<#k>> {
+            fn key<#k>(&#k self) -> ::autosurgeon::reconcile::LoadKey<Self::Key<#k>> {
                 match self {
                     #(#variant_match_arms),*
                 }
@@ -478,39 +528,55 @@ impl<'a> EnumKey<'a> {
             .filter_map(|v| v.unit_match_arm(&key_type_name));
         let k = syn::Lifetime::new("'k", Span::mixed_site());
         Some(quote! {
-            fn hydrate_key<#k, D: autosurgeon::ReadDoc>(
+            fn hydrate_key<#k, D: ::autosurgeon::ReadDoc>(
                 doc: &D,
-                obj: &automerge::ObjId,
-                prop: autosurgeon::Prop<'_>,
-            ) -> Result<autosurgeon::reconcile::LoadKey<Self::Key<#k>>, autosurgeon::ReconcileError> {
-                use automerge::{ObjType, ScalarValue, Value, transaction::Transactable};
-                let Some((outer_ty, #outer_id_ident)) = doc.get(obj, &prop)? else {
-                    return Ok(autosurgeon::reconcile::LoadKey::KeyNotFound)
+                obj: &::automerge::ObjId,
+                prop: ::autosurgeon::Prop<'_>,
+            ) -> ::std::result::Result<
+                ::autosurgeon::reconcile::LoadKey<Self::Key<#k>>,
+                ::autosurgeon::ReconcileError,
+            > {
+                let ::std::option::Option::Some((
+                    outer_ty,
+                    #outer_id_ident,
+                )) = ::autosurgeon::ReadDoc::get(doc, obj, &prop)?
+                else {
+                    return ::std::result::Result::Ok(::autosurgeon::reconcile::LoadKey::KeyNotFound)
                 };
                 match outer_ty {
-                    Value::Scalar(s) => match s.as_ref() {
-                        ScalarValue::Str(s) => {
+                    ::automerge::Value::Scalar(s) => match ::std::convert::AsRef::as_ref(&s) {
+                        ::automerge::ScalarValue::Str(s) => {
                             match s.as_str() {
                                 #(#unit_match_arms)*
-                                _ => Ok(autosurgeon::reconcile::LoadKey::KeyNotFound)
+                                _ => ::std::result::Result::Ok(
+                                    ::autosurgeon::reconcile::LoadKey::KeyNotFound,
+                                )
                             }
                         },
-                        _ => Ok(autosurgeon::reconcile::LoadKey::KeyNotFound)
+                        _ => ::std::result::Result::Ok(
+                            ::autosurgeon::reconcile::LoadKey::KeyNotFound,
+                        )
                     },
-                    Value::Object(ObjType::Map) => {
-                        let Some(automerge::iter::MapRangeItem {
+                    ::automerge::Value::Object(::automerge::ObjType::Map) => {
+                        let ::std::option::Option::Some(::automerge::iter::MapRangeItem {
                             key: discriminant_str,
                             ..
-                        }) = doc.map_range(&#outer_id_ident, ..).next()
+                        }) = ::autosurgeon::ReadDoc::map_range(doc, &#outer_id_ident, ..).next()
                         else {
-                            return Ok(autosurgeon::reconcile::LoadKey::KeyNotFound);
+                            return ::std::result::Result::Ok(
+                                ::autosurgeon::reconcile::LoadKey::KeyNotFound,
+                            );
                         };
                         match discriminant_str {
                             #(#non_unit_match_arms)*
-                            _ => Ok(autosurgeon::reconcile::LoadKey::KeyNotFound),
+                            _ => ::std::result::Result::Ok(
+                                ::autosurgeon::reconcile::LoadKey::KeyNotFound,
+                            ),
                         }
                     },
-                    _ => Ok(autosurgeon::reconcile::LoadKey::KeyNotFound)
+                    _ => ::std::result::Result::Ok(
+                        ::autosurgeon::reconcile::LoadKey::KeyNotFound,
+                    )
                 }
             }
         })
@@ -769,32 +835,34 @@ fn enum_with_fields_variant<F: VariantWithFields>(
     let mut generics = generics.clone();
     generics
         .params
-        .push(syn::parse_quote! {'__reconcile_visitor});
+        .push(syn::parse_quote!('__reconcile_visitor));
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let variant_matcher = variant.variant_matcher(name, matchers);
 
     Ok(quote! {
         #variant_matcher => {
-            use autosurgeon::reconcile::{Reconciler, MapReconciler};
             struct #visitor_name #ty_generics
             #where_clause
             {
                 #(#field_defs),*
             }
-            impl #impl_generics autosurgeon::Reconcile for #visitor_name #ty_generics {
-                type Key<'k> = autosurgeon::reconcile::NoKey;
-                fn reconcile<__R234: autosurgeon::Reconciler>(&self, mut #inner_reconciler_ident: __R234) -> Result<(), __R234::Error> {
+            impl #impl_generics ::autosurgeon::Reconcile for #visitor_name #ty_generics {
+                type Key<'k> = ::autosurgeon::reconcile::NoKey;
+                fn reconcile<__R234: ::autosurgeon::Reconciler>(
+                    &self,
+                    mut #inner_reconciler_ident: __R234,
+                ) -> ::std::result::Result<(), __R234::Error> {
                     #inner_reconcile
                 }
             }
             let v = #visitor_name {
                 #(#constructors),*
             };
-            let mut m = #reconciler_ident.map()?;
-            m.retain(|k, _| k == #variant_name_str)?;
-            m.put(#variant_name_str, v)?;
-            Ok(())
+            let mut m = ::autosurgeon::Reconciler::map(&mut #reconciler_ident)?;
+            ::autosurgeon::reconcile::MapReconciler::retain(&mut m, |k, _| k == #variant_name_str)?;
+            ::autosurgeon::reconcile::MapReconciler::put(&mut m, #variant_name_str, v)?;
+            ::std::result::Result::Ok(())
         }
     })
 }

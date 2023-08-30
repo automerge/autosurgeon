@@ -118,11 +118,14 @@ impl ReconcileWith {
             Self::Module { module_name, .. } | Self::With { module_name, .. } => {
                 let k = syn::Lifetime::new("'k", Span::mixed_site());
                 Some(quote! {
-                    fn hydrate_key<#k, D: autosurgeon::ReadDoc>(
+                    fn hydrate_key<#k, D: ::autosurgeon::ReadDoc>(
                         doc: &D,
-                        obj: &automerge::ObjId,
-                        prop: autosurgeon::Prop<'_>,
-                    ) -> Result<autosurgeon::reconcile::LoadKey<Self::Key<#k>>, autosurgeon::ReconcileError> {
+                        obj: &::automerge::ObjId,
+                        prop: ::autosurgeon::Prop<'_>,
+                    ) -> ::std::result::Result<
+                        ::autosurgeon::reconcile::LoadKey<Self::Key<#k>>,
+                        ::autosurgeon::ReconcileError,
+                    > {
                         #module_name::hydrate_key(doc, obj, prop)
                     }
                 })
@@ -136,7 +139,7 @@ impl ReconcileWith {
             Self::Module { module_name, .. } | Self::With { module_name, .. } => {
                 let k = syn::Lifetime::new("'k", Span::mixed_site());
                 Some(quote! {
-                    fn key<#k>(&#k self) -> autosurgeon::reconcile::LoadKey<Self::Key<#k>> {
+                    fn key<#k>(&#k self) -> ::autosurgeon::reconcile::LoadKey<Self::Key<#k>> {
                         #module_name::key(#accessor)
                     }
                 })

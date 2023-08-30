@@ -59,12 +59,15 @@ pub fn derive_reconcile(input: proc_macro::TokenStream) -> proc_macro::TokenStre
             let key_lifetime = syn::Lifetime::new("'k", Span::mixed_site());
             let key_type_def = key_type_def.unwrap_or_else(|| quote!());
             let key_type = key_type.unwrap_or(quote! {
-                type Key<#key_lifetime> = autosurgeon::reconcile::NoKey;
+                type Key<#key_lifetime> = ::autosurgeon::reconcile::NoKey;
             });
             let expanded = quote! {
-                impl #impl_generics autosurgeon::Reconcile for #name #ty_generics #where_clause {
+                impl #impl_generics ::autosurgeon::Reconcile for #name #ty_generics #where_clause {
                     #key_type
-                    fn reconcile<__R123: autosurgeon::Reconciler>(&self, mut #reconciler_ident: __R123) -> Result<(), __R123::Error> {
+                    fn reconcile<__R123: ::autosurgeon::Reconciler>(
+                        &self,
+                        mut #reconciler_ident: __R123,
+                    ) -> ::std::result::Result<(), __R123::Error> {
                         #the_impl
                     }
                     #hydrate_key
@@ -85,7 +88,9 @@ pub fn derive_reconcile(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 fn add_trait_bounds(mut generics: Generics) -> Generics {
     for param in &mut generics.params {
         if let GenericParam::Type(ref mut type_param) = *param {
-            type_param.bounds.push(parse_quote!(autosurgeon::Reconcile));
+            type_param
+                .bounds
+                .push(parse_quote!(::autosurgeon::Reconcile));
         }
     }
     generics
@@ -128,7 +133,7 @@ fn reconcile_with_impl(
     let key_lifetime = syn::Lifetime::new("'k", Span::mixed_site());
     let key_type = match reconcile_with {
         attrs::ReconcileWith::Function { .. } => quote! {
-            type Key<#key_lifetime> = std::borrow::Cow<#key_lifetime, Self>;
+            type Key<#key_lifetime> = ::std::borrow::Cow<#key_lifetime, Self>;
         },
         attrs::ReconcileWith::Module { module_name, .. }
         | attrs::ReconcileWith::With { module_name, .. } => {
@@ -140,25 +145,38 @@ fn reconcile_with_impl(
     };
     let hydrate_key = match reconcile_with {
         attrs::ReconcileWith::Function { .. } => quote! {
-            fn hydrate_key<#key_lifetime, D: autosurgeon::ReadDoc>(
+            fn hydrate_key<#key_lifetime, D: ::autosurgeon::ReadDoc>(
                 doc: &D,
-                obj: &automerge::ObjId,
-                prop: autosurgeon::Prop<'_>,
-            ) -> Result<autosurgeon::reconcile::LoadKey<Self::Key<#key_lifetime>>, autosurgeon::ReconcileError> {
-                use autosurgeon::{reconcile::LoadKey, hydrate::HydrateResultExt};
-                let key = autosurgeon::hydrate::hydrate_path(doc, obj, std::iter::once(prop)).strip_unexpected()?;
-                Ok(key.map(|k| LoadKey::Found(std::borrow::Cow::Owned(k))).unwrap_or(LoadKey::KeyNotFound))
+                obj: &::automerge::ObjId,
+                prop: ::autosurgeon::Prop<'_>,
+            ) -> ::std::result::Result<
+                ::autosurgeon::reconcile::LoadKey<Self::Key<#key_lifetime>>,
+                ::autosurgeon::ReconcileError,
+            > {
+                let key = ::autosurgeon::hydrate::HydrateResultExt::strip_unexpected(
+                    ::autosurgeon::hydrate::hydrate_path(doc, obj, ::std::iter::once(prop)),
+                )?;
+                ::std::result::Result::Ok(
+                    key
+                        .map(|k| {
+                            ::autosurgeon::reconcile::LoadKey::Found(::std::borrow::Cow::Owned(k))
+                        })
+                        .unwrap_or(::autosurgeon::reconcile::LoadKey::KeyNotFound),
+                )
             }
         },
         attrs::ReconcileWith::Module { module_name, .. }
         | attrs::ReconcileWith::With { module_name, .. } => {
             let hydrate_key_ident = syn::Ident::new("hydrate_key", Span::mixed_site());
             quote! {
-                fn hydrate_key<#key_lifetime, D: autosurgeon::ReadDoc>(
+                fn hydrate_key<#key_lifetime, D: ::autosurgeon::ReadDoc>(
                     doc: &D,
-                    obj: &automerge::ObjId,
-                    prop: autosurgeon::Prop<'_>,
-                ) -> Result<autosurgeon::reconcile::LoadKey<Self::Key<#key_lifetime>>, autosurgeon::ReconcileError> {
+                    obj: &::automerge::ObjId,
+                    prop: ::autosurgeon::Prop<'_>,
+                ) -> ::std::result::Result<
+                    ::autosurgeon::reconcile::LoadKey<Self::Key<#key_lifetime>>,
+                    ::autosurgeon::ReconcileError,
+                > {
                     #module_name::#hydrate_key_ident(doc, obj, prop)
                 }
             }
@@ -166,15 +184,19 @@ fn reconcile_with_impl(
     };
     let get_key = match reconcile_with {
         attrs::ReconcileWith::Function { .. } => quote! {
-            fn key<#key_lifetime>(&#key_lifetime self) -> autosurgeon::reconcile::LoadKey<Self::Key<#key_lifetime>> {
-                autosurgeon::reconcile::LoadKey::Found(std::borrow::Cow::Borrowed(self))
+            fn key<#key_lifetime>(
+                &#key_lifetime self,
+            ) -> ::autosurgeon::reconcile::LoadKey<Self::Key<#key_lifetime>> {
+                ::autosurgeon::reconcile::LoadKey::Found(::std::borrow::Cow::Borrowed(self))
             }
         },
         attrs::ReconcileWith::Module { module_name, .. }
         | attrs::ReconcileWith::With { module_name, .. } => {
             let get_ident = syn::Ident::new("key", Span::mixed_site());
             quote! {
-                fn key<#key_lifetime>(&#key_lifetime self) -> autosurgeon::reconcile::LoadKey<Self::Key<#key_lifetime>> {
+                fn key<#key_lifetime>(
+                    &#key_lifetime self,
+                ) -> ::autosurgeon::reconcile::LoadKey<Self::Key<#key_lifetime>> {
                     #module_name::#get_ident(self)
                 }
             }
@@ -220,21 +242,27 @@ fn newtype_struct_impl(field: &syn::Field) -> Result<ReconcileImpl, error::Deriv
         Ok(ReconcileImpl {
             reconcile: quote_spanned!(field.span()=> self.0.reconcile(reconciler)),
             key_type: Some(quote! {
-                type Key<#key_lifetime> = <#field_ty as Reconcile>::Key<#key_lifetime>;
+                type Key<#key_lifetime> =
+                    <#field_ty as ::autosurgeon::Reconcile>::Key<#key_lifetime>;
             }),
             key_type_def: None,
             hydrate_key: Some(quote! {
-                fn hydrate_key<#key_lifetime, D: autosurgeon::ReadDoc>(
+                fn hydrate_key<#key_lifetime, D: ::autosurgeon::ReadDoc>(
                     doc: &D,
-                    obj: &automerge::ObjId,
-                    prop: autosurgeon::Prop<'_>,
-                ) -> Result<autosurgeon::reconcile::LoadKey<Self::Key<#key_lifetime>>, autosurgeon::ReconcileError> {
-                    <#field_ty as autosurgeon::Reconcile>::hydrate_key(doc, obj, prop)
+                    obj: &::automerge::ObjId,
+                    prop: ::autosurgeon::Prop<'_>,
+                ) -> ::std::result::Result<
+                    ::autosurgeon::reconcile::LoadKey<Self::Key<#key_lifetime>>,
+                    ::autosurgeon::ReconcileError,
+                > {
+                    <#field_ty as ::autosurgeon::Reconcile>::hydrate_key(doc, obj, prop)
                 }
             }),
             get_key: Some(quote! {
-                fn key<#key_lifetime>(&#key_lifetime self) -> autosurgeon::reconcile::LoadKey<Self::Key<#key_lifetime>> {
-                    <#field_ty as autosurgeon::Reconcile>::key(&self.0)
+                fn key<#key_lifetime>(
+                    &#key_lifetime self,
+                ) -> ::autosurgeon::reconcile::LoadKey<Self::Key<#key_lifetime>> {
+                    <#field_ty as ::autosurgeon::Reconcile>::key(&self.0)
                 }
             }),
         })

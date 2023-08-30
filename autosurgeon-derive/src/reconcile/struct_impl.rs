@@ -55,24 +55,44 @@ pub(super) trait Field {
             None => (quote!(), quote!(&#accessor)),
         };
         let get = match reconciler_ty {
-            ReconcilerType::Map => quote_spanned!(self.span()=> #reconciler_ident.entry(#prop)),
-            ReconcilerType::Seq => quote_spanned!(self.span()=> #reconciler_ident.get(#prop)?),
+            ReconcilerType::Map => quote_spanned! {self.span()=>
+                ::autosurgeon::reconcile::MapReconciler::entry(&#reconciler_ident, #prop)
+            },
+            ReconcilerType::Seq => quote_spanned! {self.span()=>
+                ::autosurgeon::reconcile::SeqReconciler::get(&#reconciler_ident, #prop)?
+            },
         };
         let insert = match reconciler_ty {
-            ReconcilerType::Seq => {
-                quote_spanned!(self.span()=> #reconciler_ident.insert(#prop, #value)?;)
-            }
-            ReconcilerType::Map => {
-                quote_spanned!(self.span()=> #reconciler_ident.put(#prop, #value)?;)
-            }
+            ReconcilerType::Seq => quote_spanned! {self.span()=>
+                ::autosurgeon::reconcile::SeqReconciler::insert(
+                    &mut #reconciler_ident,
+                    #prop,
+                    #value,
+                )?;
+            },
+            ReconcilerType::Map => quote_spanned! {self.span()=>
+                ::autosurgeon::reconcile::MapReconciler::put(
+                    &mut #reconciler_ident,
+                    #prop,
+                    #value,
+                )?;
+            },
         };
         let update = match reconciler_ty {
-            ReconcilerType::Seq => {
-                quote_spanned!(self.span()=> #reconciler_ident.set(#prop, #value)?;)
-            }
-            ReconcilerType::Map => {
-                quote_spanned!(self.span()=> #reconciler_ident.put(#prop, #value)?;)
-            }
+            ReconcilerType::Seq => quote_spanned! {self.span()=>
+                ::autosurgeon::reconcile::SeqReconciler::set(
+                    &mut #reconciler_ident,
+                    #prop,
+                    #value,
+                )?;
+            },
+            ReconcilerType::Map => quote_spanned! {self.span()=>
+                ::autosurgeon::reconcile::MapReconciler::put(
+                    &mut #reconciler_ident,
+                    #prop,
+                    #value,
+                )?;
+            },
         };
         quote! {
 
@@ -276,7 +296,7 @@ impl<'a, F: Field + Clone> KeyField<'a, F> {
         let ty = &self.ty;
         let lifetime = syn::Lifetime::new("'k", Span::mixed_site());
         quote! {
-            type Key<#lifetime> = std::borrow::Cow<#lifetime, #ty>;
+            type Key<#lifetime> = ::std::borrow::Cow<#lifetime, #ty>;
         }
     }
 
@@ -290,46 +310,88 @@ impl<'a, F: Field + Clone> KeyField<'a, F> {
         if let Some(hydrate_with) = self.field.hydrate_with() {
             let hydrate_func = hydrate_with.hydrate_with();
             quote! {
-                fn hydrate_key<#key_lifetime, D: autosurgeon::ReadDoc>(
+                fn hydrate_key<#key_lifetime, D: ::autosurgeon::ReadDoc>(
                     doc: &D,
-                    obj: &automerge::ObjId,
-                    prop: autosurgeon::Prop<'_>,
-                ) -> Result<autosurgeon::reconcile::LoadKey<Self::Key<#key_lifetime>>, autosurgeon::ReconcileError> {
-                    use automerge::{ObjType, transaction::Transactable};
-                    use autosurgeon::{Prop, reconcile::LoadKey, hydrate::HydrateResultExt};
-                    let Some(outer_type) = doc.object_type(&obj) else {
-                        return Ok(LoadKey::KeyNotFound)
+                    obj: &::automerge::ObjId,
+                    prop: ::autosurgeon::Prop<'_>,
+                ) -> ::std::result::Result<
+                    ::autosurgeon::reconcile::LoadKey<Self::Key<#key_lifetime>>,
+                    ::autosurgeon::ReconcileError,
+                > {
+                    let ::std::option::Option::Some(outer_type) =
+                        ::autosurgeon::ReadDoc::object_type(doc, &obj)
+                    else {
+                        return ::std::result::Result::Ok(
+                            ::autosurgeon::reconcile::LoadKey::KeyNotFound,
+                        )
                     };
                     let maybe_inner = match (outer_type, prop) {
-                        (ObjType::Map | ObjType::Table, Prop::Key(k)) => {
-                            doc.get(&obj, k.as_ref())?
-                        },
-                        (ObjType::List | ObjType::Text, Prop::Index(i)) => {
-                            doc.get(&obj, i as usize)?
-                        },
-                        _ => return Ok(LoadKey::KeyNotFound),
+                        (
+                            ::automerge::ObjType::Map | ::automerge::ObjType::Table,
+                            ::autosurgeon::Prop::Key(k)
+                        ) => ::autosurgeon::ReadDoc::get(
+                            doc,
+                            &obj,
+                            ::std::convert::AsRef::as_ref(&k),
+                        )?,
+                        (
+                            ::automerge::ObjType::List | ::automerge::ObjType::Text,
+                            ::autosurgeon::Prop::Index(i)
+                        ) => ::autosurgeon::ReadDoc::get(doc, &obj, i as ::std::primitive::usize)?,
+                        _ => return ::std::result::Result::Ok(
+                            ::autosurgeon::reconcile::LoadKey::KeyNotFound,
+                        ),
                     };
-                    let Some((_, inner_obj)) = maybe_inner else {
-                        return Ok(LoadKey::KeyNotFound)
+                    let ::std::option::Option::Some((_, inner_obj)) = maybe_inner else {
+                        return ::std::result::Result::Ok(
+                            ::autosurgeon::reconcile::LoadKey::KeyNotFound,
+                        )
                     };
-                    let Some(inner_type) = doc.object_type(&inner_obj) else {
-                        return Ok(LoadKey::KeyNotFound)
+                    let ::std::option::Option::Some(inner_type) =
+                        ::autosurgeon::ReadDoc::object_type(doc, &inner_obj)
+                    else {
+                        return ::std::result::Result::Ok(
+                            ::autosurgeon::reconcile::LoadKey::KeyNotFound,
+                        )
                     };
-                    let inner_val = match (inner_type, Prop::from(#key_prop)) {
-                        (ObjType::Map | ObjType::Table, Prop::Key(k)) => {
-                            doc.get(&inner_obj, k.as_ref())?
-                        },
-                        (ObjType::List | ObjType::Text, Prop::Index(i)) => {
-                            doc.get(&inner_obj, i as usize)?
-                        },
-                        _ => return Ok(LoadKey::KeyNotFound),
+                    let inner_val = match (inner_type, ::autosurgeon::Prop::from(#key_prop)) {
+                        (
+                            ::automerge::ObjType::Map | ::automerge::ObjType::Table,
+                            ::autosurgeon::Prop::Key(k)
+                        ) => ::autosurgeon::ReadDoc::get(
+                            doc,
+                            &inner_obj,
+                            ::std::convert::AsRef::as_ref(&k),
+                        )?,
+                        (
+                            ::automerge::ObjType::List | ::automerge::ObjType::Text,
+                            ::autosurgeon::Prop::Index(i)
+                        ) => ::autosurgeon::ReadDoc::get(
+                            doc,
+                            &inner_obj,
+                            i as ::std::primitive::usize,
+                        )?,
+                        _ => return ::std::result::Result::Ok(
+                            ::autosurgeon::reconcile::LoadKey::KeyNotFound,
+                        ),
                     };
                     if inner_val.is_none() {
-                        return Ok(LoadKey::KeyNotFound)
+                        return ::std::result::Result::Ok(
+                            ::autosurgeon::reconcile::LoadKey::KeyNotFound,
+                        )
                     } else {
-                        match #hydrate_func(doc, &inner_obj, #key_prop.into()).map(Some).strip_unexpected()? {
-                            Some(k) => Ok(LoadKey::Found(std::borrow::Cow::Owned(k))),
-                            None => Ok(LoadKey::KeyNotFound),
+                        match ::autosurgeon::hydrate::HydrateResultExt::strip_unexpected(
+                            #hydrate_func(doc, &inner_obj, ::std::convert::Into::into(#key_prop))
+                                .map(::std::option::Option::Some),
+                        )? {
+                            ::std::option::Option::Some(k) => ::std::result::Result::Ok(
+                                ::autosurgeon::reconcile::LoadKey::Found(
+                                    ::std::borrow::Cow::Owned(k),
+                                ),
+                            ),
+                            ::std::option::Option::None => ::std::result::Result::Ok(
+                                ::autosurgeon::reconcile::LoadKey::KeyNotFound,
+                            ),
                         }
                     }
 
@@ -337,12 +399,20 @@ impl<'a, F: Field + Clone> KeyField<'a, F> {
             }
         } else {
             quote! {
-                fn hydrate_key<#key_lifetime, D: autosurgeon::ReadDoc>(
+                fn hydrate_key<#key_lifetime, D: ::autosurgeon::ReadDoc>(
                     doc: &D,
-                    obj: &automerge::ObjId,
-                    prop: autosurgeon::Prop<'_>,
-                ) -> Result<autosurgeon::reconcile::LoadKey<Self::Key<#key_lifetime>>, autosurgeon::ReconcileError> {
-                    autosurgeon::reconcile::hydrate_key::<_, std::borrow::Cow<'_, _>>(doc, obj, prop.into(), #key_prop.into())
+                    obj: &::automerge::ObjId,
+                    prop: ::autosurgeon::Prop<'_>,
+                ) -> ::std::result::Result<
+                    ::autosurgeon::reconcile::LoadKey<Self::Key<#key_lifetime>>,
+                    ::autosurgeon::ReconcileError,
+                > {
+                    ::autosurgeon::reconcile::hydrate_key::<_, ::std::borrow::Cow<'_, _>>(
+                        doc,
+                        obj,
+                        ::std::convert::Into::into(prop),
+                        ::std::convert::Into::into(#key_prop),
+                    )
                 }
             }
         }
@@ -357,8 +427,10 @@ impl<'a, F: Field + Clone> KeyField<'a, F> {
         let get_key = self.field.accessor();
         let key_lifetime = syn::Lifetime::new("'k", Span::mixed_site());
         quote! {
-            fn key<#key_lifetime>(&#key_lifetime self) -> autosurgeon::reconcile::LoadKey<Self::Key<#key_lifetime>> {
-                autosurgeon::reconcile::LoadKey::Found(std::borrow::Cow::Borrowed(&#get_key))
+            fn key<#key_lifetime>(
+                &#key_lifetime self,
+            ) -> ::autosurgeon::reconcile::LoadKey<Self::Key<#key_lifetime>> {
+                ::autosurgeon::reconcile::LoadKey::Found(::std::borrow::Cow::Borrowed(&#get_key))
             }
         }
     }
@@ -417,10 +489,9 @@ pub(super) fn named_field_impl<'a, F: TryInto<NamedFields<'a>, Error = DeriveErr
     } = struct_impl(fields, &inner_reconciler_ident, ReconcilerType::Map)?;
 
     let the_impl = quote! {
-        use autosurgeon::reconcile::MapReconciler;
-        let mut #inner_reconciler_ident = #reconciler_ident.map()?;
+        let mut #inner_reconciler_ident = ::autosurgeon::Reconciler::map(&mut #reconciler_ident)?;
         #( #field_impls)*
-        Ok(())
+        ::std::result::Result::Ok(())
     };
 
     Ok(ReconcileImpl {
@@ -481,10 +552,9 @@ pub(super) fn tuple_struct_impl<
     } = struct_impl(fields, &seq_reconciler_ident, ReconcilerType::Seq)?;
 
     let the_impl = quote! {
-        use autosurgeon::reconcile::SeqReconciler;
-        let mut #seq_reconciler_ident = #reconciler_ident.seq()?;
+        let mut #seq_reconciler_ident = ::autosurgeon::Reconciler::seq(&mut #reconciler_ident)?;
         #( #field_impls)*
-        Ok(())
+        ::std::result::Result::Ok(())
     };
 
     Ok(ReconcileImpl {

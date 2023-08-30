@@ -29,12 +29,16 @@ impl<'a> NamedField<'a> {
         if let Some(hydrate_with) = self.attrs.hydrate_with() {
             let function_name = hydrate_with.hydrate_with();
             quote! {
-                let #name = #function_name(doc, &#obj_ident, #string_name.into())?;
+                let #name = #function_name(
+                    doc,
+                    &#obj_ident,
+                    ::std::convert::Into::into(#string_name),
+                )?;
             }
         } else {
             let span = self.field.span();
             quote_spanned! {span=>
-                let #name = autosurgeon::hydrate_prop(doc, &#obj_ident, #string_name)?;
+                let #name = ::autosurgeon::hydrate_prop(doc, &#obj_ident, #string_name)?;
             }
         }
     }

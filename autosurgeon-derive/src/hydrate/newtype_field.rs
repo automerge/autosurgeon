@@ -24,12 +24,12 @@ impl<'a> NewtypeField<'a> {
         if let Some(hydrate_with) = self.attrs.hydrate_with() {
             let hydrate_func = hydrate_with.hydrate_with();
             quote! {
-                let #target = #hydrate_func(doc, obj, #prop_ident.into())?;
+                let #target = #hydrate_func(doc, obj, ::std::convert::Into::into(#prop_ident))?;
             }
         } else {
             let span = self.field.span();
             quote_spanned! {span=>
-                let #target = autosurgeon::hydrate_prop(doc, obj, #prop_ident)?;
+                let #target = ::autosurgeon::hydrate_prop(doc, obj, #prop_ident)?;
             }
         }
     }

@@ -43,7 +43,7 @@ pub fn derive_hydrate(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 fn add_trait_bounds(mut generics: Generics) -> Generics {
     for param in &mut generics.params {
         if let GenericParam::Type(ref mut type_param) = *param {
-            type_param.bounds.push(parse_quote!(autosurgeon::Hydrate));
+            type_param.bounds.push(parse_quote!(::autosurgeon::Hydrate));
         }
     }
     generics
@@ -55,12 +55,12 @@ fn on_hydrate_with(input: &DeriveInput, hydrate_with: &TokenStream) -> TokenStre
     let name = &input.ident;
 
     quote! {
-        impl #impl_generics autosurgeon::Hydrate for #name #ty_generics #where_clause {
-            fn hydrate<'a, D: autosurgeon::ReadDoc>(
+        impl #impl_generics ::autosurgeon::Hydrate for #name #ty_generics #where_clause {
+            fn hydrate<'a, D: ::autosurgeon::ReadDoc>(
                 doc: &D,
-                obj: &automerge::ObjId,
-                prop: autosurgeon::Prop<'a>,
-            ) -> Result<Self, autosurgeon::HydrateError> {
+                obj: &::automerge::ObjId,
+                prop: ::autosurgeon::Prop<'a>,
+            ) -> ::std::result::Result<Self, ::autosurgeon::HydrateError> {
                 #hydrate_with(doc, obj, prop)
             }
         }
@@ -87,7 +87,7 @@ fn on_struct(
             let the_impl = gen_named_struct_impl(name, &fields);
 
             Ok(quote! {
-                impl #impl_generics autosurgeon::Hydrate for #name #ty_generics #where_clause {
+                impl #impl_generics ::autosurgeon::Hydrate for #name #ty_generics #where_clause {
                     #the_impl
                 }
             })
@@ -120,7 +120,7 @@ fn on_enum(
     let hydrate_map = named_fields.hydrate_map();
 
     Ok(quote! {
-        impl #impl_generics autosurgeon::Hydrate for #name #ty_generics
+        impl #impl_generics ::autosurgeon::Hydrate for #name #ty_generics
             #where_clause
         {
             #hydrate_string
@@ -154,7 +154,7 @@ impl<'a> EnumUnitFields<'a> {
         let ty = self.ty;
         let branches = self.fields.iter().map(|i| {
             let branch_name = i.to_string();
-            quote!(#branch_name => Ok(#ty::#i))
+            quote!(#branch_name => ::std::result::Result::Ok(#ty::#i))
         });
         quote!(#(#branches),*)
     }
@@ -174,14 +174,16 @@ impl<'a> EnumUnitFields<'a> {
 
             quote! {
                 fn hydrate_string(
-                    val: &'_ str
-                ) -> Result<Self, autosurgeon::HydrateError> {
+                    val: &'_ ::std::primitive::str
+                ) -> ::std::result::Result<Self, ::autosurgeon::HydrateError> {
                     match val {
                         #unit_branches,
-                        other => Err(autosurgeon::HydrateError::unexpected(
-                            #unit_error,
-                            other.to_string(),
-                        )),
+                        other => ::std::result::Result::Err(
+                            ::autosurgeon::HydrateError::unexpected(
+                                #unit_error,
+                                ::std::string::ToString::to_string(other),
+                            ),
+                        ),
                     }
                 }
             }
@@ -210,14 +212,14 @@ impl<'a> EnumAsMapFields<'a> {
         } else {
             let stanzas = self.variants.iter().map(|v| v.visitor_def(self.ty));
             quote! {
-                fn hydrate_map<D: autosurgeon::ReadDoc>(
+                fn hydrate_map<D: ::autosurgeon::ReadDoc>(
                     doc: &D,
-                    obj: &automerge::ObjId,
-                ) -> Result<Self, autosurgeon::HydrateError> {
+                    obj: &::automerge::ObjId,
+                ) -> ::std::result::Result<Self, ::autosurgeon::HydrateError> {
                     #(#stanzas)*
-                    Err(autosurgeon::HydrateError::unexpected(
+                    ::std::result::Result::Err(::autosurgeon::HydrateError::unexpected(
                         "A map with one key",
-                        "something else".to_string(),
+                        ::std::string::ToString::to_string("something else"),
                     ))
                 }
             }
@@ -232,9 +234,12 @@ fn gen_named_struct_impl(name: &syn::Ident, fields: &[named_field::NamedField]) 
     let field_initializers = fields.iter().map(|f| f.initializer());
 
     quote! {
-        fn hydrate_map<D: autosurgeon::ReadDoc>(doc: &D, #obj_ident: &automerge::ObjId) -> Result<Self, autosurgeon::HydrateError> {
+        fn hydrate_map<D: ::autosurgeon::ReadDoc>(
+            doc: &D,
+            #obj_ident: &::automerge::ObjId,
+        ) -> ::std::result::Result<Self, ::autosurgeon::HydrateError> {
             #(#field_hydrators)*
-            Ok(#name {
+            ::std::result::Result::Ok(#name {
                 #(#field_initializers),*
             })
         }
@@ -258,27 +263,27 @@ fn gen_newtype_struct_wrapper(
 
     if let Some(hydrate_with) = attrs.hydrate_with().map(|h| h.hydrate_with()) {
         Ok(quote! {
-            impl #impl_generics autosurgeon::hydrate::Hydrate for #ty #ty_generics #where_clause {
-                fn hydrate<'a, D: autosurgeon::ReadDoc>(
+            impl #impl_generics ::autosurgeon::hydrate::Hydrate for #ty #ty_generics #where_clause {
+                fn hydrate<'a, D: ::autosurgeon::ReadDoc>(
                     doc: &D,
-                    obj: &automerge::ObjId,
-                    prop: autosurgeon::Prop<'a>,
-                ) -> Result<Self, autosurgeon::HydrateError> {
+                    obj: &::automerge::ObjId,
+                    prop: ::autosurgeon::Prop<'a>,
+                ) -> ::std::result::Result<Self, ::autosurgeon::HydrateError> {
                     let inner = #hydrate_with(doc, obj, prop)?;
-                    Ok(#ty(inner))
+                    ::std::result::Result::Ok(#ty(inner))
                 }
             }
         })
     } else {
         Ok(quote! {
-            impl #impl_generics autosurgeon::hydrate::Hydrate for #ty #ty_generics #where_clause {
-                fn hydrate<'a, D: autosurgeon::ReadDoc>(
+            impl #impl_generics ::autosurgeon::hydrate::Hydrate for #ty #ty_generics #where_clause {
+                fn hydrate<'a, D: ::autosurgeon::ReadDoc>(
                     doc: &D,
-                    obj: &automerge::ObjId,
-                    prop: autosurgeon::Prop<'a>,
-                ) -> Result<Self, autosurgeon::HydrateError> {
+                    obj: &::automerge::ObjId,
+                    prop: ::autosurgeon::Prop<'a>,
+                ) -> ::std::result::Result<Self, ::autosurgeon::HydrateError> {
                     let inner = #inner_ty::hydrate(doc, obj, prop)?;
-                    Ok(#ty(inner))
+                    ::std::result::Result::Ok(#ty(inner))
                 }
             }
         })
@@ -305,10 +310,13 @@ fn gen_tuple_struct_wrapper(
     let field_initializers = fields.iter().map(|f| f.initializer());
 
     Ok(quote! {
-        impl #impl_generics autosurgeon::Hydrate for #name #ty_generics #where_clause {
-            fn hydrate_seq<D: autosurgeon::ReadDoc>(doc: &D, #obj_ident: &automerge::ObjId) -> Result<Self, autosurgeon::HydrateError> {
+        impl #impl_generics ::autosurgeon::Hydrate for #name #ty_generics #where_clause {
+            fn hydrate_seq<D: ::autosurgeon::ReadDoc>(
+                doc: &D,
+                #obj_ident: &::automerge::ObjId,
+            ) -> ::std::result::Result<Self, ::autosurgeon::HydrateError> {
                 #(#field_hydrators)*
-                Ok(#name (
+                ::std::result::Result::Ok(#name (
                     #(#field_initializers),*
                 ))
             }
