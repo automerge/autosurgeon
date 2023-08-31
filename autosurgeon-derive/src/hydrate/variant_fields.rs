@@ -76,10 +76,10 @@ fn newtype_field_variant_stanza(
 
     let hydrator = field.hydrate_into(&name, &variant_name_str);
     quote! {
-        if doc.get(obj, #variant_name_str)?.is_some() {
+        if ::autosurgeon::ReadDoc::get(doc, obj, #variant_name_str)?.is_some() {
             #hydrator
-            //let #name = autosurgeon::hydrate_prop(doc, obj, #variant_name_str)?;
-            return Ok(#ty::#variant_name(#name))
+            //let #name = ::autosurgeon::hydrate_prop(doc, obj, #variant_name_str)?;
+            return ::std::result::Result::Ok(#ty::#variant_name(#name))
         }
     }
 }
@@ -97,10 +97,14 @@ fn named_field_variant_stanza(
     let field_initializers = fields.iter().map(|f| f.initializer());
 
     quote! {
-        if let Some((val, #obj_ident)) = doc.get(obj, #variant_name_str)? {
-            if matches!(val, automerge::Value::Object(automerge::ObjType::Map)) {
+        if let ::std::option::Option::Some((val, #obj_ident)) = ::autosurgeon::ReadDoc::get(
+            doc,
+            obj,
+            #variant_name_str,
+        )? {
+            if ::std::matches!(val, ::automerge::Value::Object(::automerge::ObjType::Map)) {
                 #(#field_hydrators)*
-                return Ok(#ty::#variant_name {
+                return ::std::result::Result::Ok(#ty::#variant_name {
                     #(#field_initializers),*
                 })
             }
@@ -121,10 +125,14 @@ fn unnamed_field_variant_stanza(
 
     let variant_name_str = variant_name.to_string();
     quote! {
-        if let Some((val, #obj_ident)) = doc.get(obj, #variant_name_str)? {
-            if matches!(val, automerge::Value::Object(automerge::ObjType::List)) {
+        if let ::std::option::Option::Some((val, #obj_ident)) = ::autosurgeon::ReadDoc::get(
+            doc,
+            obj,
+            #variant_name_str,
+        )? {
+            if ::std::matches!(val, ::automerge::Value::Object(::automerge::ObjType::List)) {
                 #(#hydrators)*
-                return Ok(#ty::#variant_name(#(#initializers),*))
+                return ::std::result::Result::Ok(#ty::#variant_name(#(#initializers),*))
             }
         }
     }

@@ -8,22 +8,28 @@ pub(crate) fn nokey_wrapper<T: ToTokens>(
 ) -> TokenStream {
     quote! {
         struct #wrapper_tyname<'a>(&'a #ty);
-        impl<'a> autosurgeon::Reconcile for #wrapper_tyname<'a> {
-            type Key<'k> = autosurgeon::reconcile::NoKey;
+        impl<'a> ::autosurgeon::Reconcile for #wrapper_tyname<'a> {
+            type Key<'k> = ::autosurgeon::reconcile::NoKey;
 
-            fn reconcile<R: autosurgeon::Reconciler>(&self, reconciler: R) -> Result<(), R::Error> {
+            fn reconcile<R: ::autosurgeon::Reconciler>(
+                &self,
+                reconciler: R,
+            ) -> ::std::result::Result<(), R::Error> {
                 #func(self.0, reconciler)
             }
 
-            fn hydrate_key<'b, D: autosurgeon::ReadDoc>(
+            fn hydrate_key<'b, D: ::autosurgeon::ReadDoc>(
                 _doc: &D,
-                _obj: &automerge::ObjId,
-                _prop: autosurgeon::Prop<'_>,
-            ) -> Result<autosurgeon::reconcile::LoadKey<Self::Key<'b>>, autosurgeon::reconcile::ReconcileError> {
-                Ok(autosurgeon::reconcile::LoadKey::NoKey)
+                _obj: &::automerge::ObjId,
+                _prop: ::autosurgeon::Prop<'_>,
+            ) -> Result<
+                ::autosurgeon::reconcile::LoadKey<Self::Key<'b>>,
+                ::autosurgeon::reconcile::ReconcileError,
+            > {
+                ::std::result::Result::Ok(::autosurgeon::reconcile::LoadKey::NoKey)
             }
-            fn key<'b>(&'b self) -> autosurgeon::reconcile::LoadKey<Self::Key<'b>> {
-                autosurgeon::reconcile::LoadKey::NoKey
+            fn key<'b>(&'b self) -> ::autosurgeon::reconcile::LoadKey<Self::Key<'b>> {
+                ::autosurgeon::reconcile::LoadKey::NoKey
             }
         }
     }
@@ -36,21 +42,27 @@ pub(crate) fn with_key_wrapper(
 ) -> TokenStream {
     quote! {
         struct #wrapper_tyname<'a>(&'a #ty);
-        impl<'a> autosurgeon::Reconcile for #wrapper_tyname<'a> {
+        impl<'a> ::autosurgeon::Reconcile for #wrapper_tyname<'a> {
             type Key<'k> = #module_name::Key<'k>;
 
-            fn reconcile<R: autosurgeon::Reconciler>(&self, reconciler: R) -> Result<(), R::Error> {
+            fn reconcile<R: ::autosurgeon::Reconciler>(
+                &self,
+                reconciler: R,
+            ) -> ::std::result::Result<(), R::Error> {
                 #module_name::reconcile(self.0, reconciler)
             }
 
-            fn hydrate_key<'b, D: autosurgeon::ReadDoc>(
+            fn hydrate_key<'b, D: ::autosurgeon::ReadDoc>(
                 doc: &D,
-                obj: &automerge::ObjId,
-                prop: autosurgeon::Prop<'_>,
-            ) -> Result<autosurgeon::reconcile::LoadKey<Self::Key<'b>>, autosurgeon::reconcile::ReconcileError> {
+                obj: &::automerge::ObjId,
+                prop: ::autosurgeon::Prop<'_>,
+            ) -> ::std::result::Result<
+                ::autosurgeon::reconcile::LoadKey<Self::Key<'b>>,
+                ::autosurgeon::reconcile::ReconcileError,
+            > {
                 #module_name::hydrate_key(doc, obj, prop)
             }
-            fn key<'b>(&'b self) -> autosurgeon::reconcile::LoadKey<Self::Key<'b>> {
+            fn key<'b>(&'b self) -> ::autosurgeon::reconcile::LoadKey<Self::Key<'b>> {
                 #module_name::key(self.0)
             }
         }
