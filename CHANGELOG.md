@@ -1,3 +1,7 @@
+## `0.8.1`
+
+* Improvements to macro hygiene courtesy of @teohhanhui
+
 ## `0.8.0`
 
 * Upgrade to Automerge 0.5.0
