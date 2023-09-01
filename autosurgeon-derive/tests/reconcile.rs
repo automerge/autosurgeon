@@ -406,7 +406,7 @@ fn reconcile_struct_enum_key() {
             manufacturer: "Audi".to_string(),
         },
     );
-    let Vehicle::Truck{num_wheels, ..} = &mut vehicles[2] else {
+    let Vehicle::Truck { num_wheels, .. } = &mut vehicles[2] else {
         panic!("should be a truck");
     };
     *num_wheels = 20;
