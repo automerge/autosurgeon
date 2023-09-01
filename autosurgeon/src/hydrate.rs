@@ -148,7 +148,7 @@ pub fn hydrate_path<'a, D: ReadDoc, H: Hydrate, P: IntoIterator<Item = Prop<'a>>
         }
     };
     let Some(mut obj_type) = doc.object_type(&obj) else {
-        return Ok(None)
+        return Ok(None);
     };
     while let Some(path_elem) = path.next() {
         match (&prop, obj_type) {
@@ -383,14 +383,14 @@ mod tests {
             }],
         };
         let result: HashMap<String, Company> =
-            hydrate_path(&doc, &automerge::ROOT, vec!["companies".into()].into_iter())
+            hydrate_path(&doc, &automerge::ROOT, vec!["companies".into()])
                 .unwrap()
                 .unwrap();
         let mut expected = HashMap::new();
         expected.insert("Microsoft".to_string(), expected_ms.clone());
         assert_eq!(expected, result);
 
-        let result: Company = hydrate_path(&doc, &companies, vec!["Microsoft".into()].into_iter())
+        let result: Company = hydrate_path(&doc, &companies, vec!["Microsoft".into()])
             .unwrap()
             .unwrap();
         assert_eq!(result, expected_ms);
@@ -398,7 +398,7 @@ mod tests {
         let satya: Employee = hydrate_path(
             &doc,
             &companies,
-            vec!["Microsoft".into(), "employees".into(), 0_usize.into()].into_iter(),
+            vec!["Microsoft".into(), "employees".into(), 0_usize.into()],
         )
         .unwrap()
         .unwrap();
@@ -412,8 +412,7 @@ mod tests {
                 "employees".into(),
                 0_usize.into(),
                 "name".into(),
-            ]
-            .into_iter(),
+            ],
         )
         .unwrap()
         .unwrap();
@@ -426,7 +425,7 @@ mod tests {
         doc.put(&automerge::ROOT, "name", "Moist von Lipwig")
             .unwrap();
         doc.put(&automerge::ROOT, "number", 1_u64).unwrap();
-        let moist = hydrate_path::<_, Employee, _>(&doc, &automerge::ROOT, vec![].into_iter())
+        let moist = hydrate_path::<_, Employee, _>(&doc, &automerge::ROOT, vec![])
             .unwrap()
             .unwrap();
         assert_eq!(
@@ -446,7 +445,7 @@ mod tests {
             .unwrap();
         doc.put(&moist, "name", "Moist von Lipwig").unwrap();
         doc.put(&moist, "number", 1_u64).unwrap();
-        let moist = hydrate_path::<_, Employee, _>(&doc, &moist, vec![].into_iter())
+        let moist = hydrate_path::<_, Employee, _>(&doc, &moist, vec![])
             .unwrap()
             .unwrap();
         assert_eq!(
