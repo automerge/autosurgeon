@@ -186,6 +186,7 @@ impl HydrateWith {
 pub(crate) struct Field {
     reconcile_with: Option<ReconcileWith>,
     hydrate_with: Option<HydrateWith>,
+    missing: Option<syn::Path>,
 }
 
 impl Field {
@@ -203,6 +204,7 @@ impl Field {
                 result = Some(Field {
                     reconcile_with: ReconcileWith::from_attrs(&attrs)?,
                     hydrate_with: HydrateWith::from_attrs(&attrs)?,
+                    missing: attrs.missing.clone(),
                 });
             }
         }
@@ -215,6 +217,10 @@ impl Field {
 
     pub(crate) fn hydrate_with(&self) -> Option<&HydrateWith> {
         self.hydrate_with.as_ref()
+    }
+
+    pub(crate) fn missing(&self) -> Option<&syn::Path> {
+        self.missing.as_ref()
     }
 }
 
@@ -297,6 +303,7 @@ struct AutosurgeonAttrs {
     reconcile_with: Option<syn::Path>,
     with: Option<syn::Path>,
     hydrate: Option<syn::Path>,
+    missing: Option<syn::Path>,
 }
 
 impl AutosurgeonAttrs {
@@ -307,6 +314,7 @@ impl AutosurgeonAttrs {
             reconcile_with: None,
             with: None,
             hydrate: None,
+            missing: None,
         };
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("reconcile") {
@@ -325,6 +333,10 @@ impl AutosurgeonAttrs {
                 let value = meta.value()?;
                 let s: syn::LitStr = value.parse()?;
                 result.hydrate = Some(s.parse()?);
+            } else if meta.path.is_ident("missing") {
+                let value = meta.value()?;
+                let s: syn::LitStr = value.parse()?;
+                result.missing = Some(s.parse()?);
             } else {
                 return Err(meta.error("unknown attribute"));
             }
