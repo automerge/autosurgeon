@@ -1,6 +1,16 @@
 [workspace]
-
 members = [
     "autosurgeon",
     "autosurgeon-derive",
 ]
+
+[workspace.package]
+authors = ["Alex Good <alex@memoryandthought.me>"]
+edition = "2021"
+rust-version = "1.65"
+repository = "https://github.com/automerge/autosurgeon"
+license = "MIT"
+
+[workspace.dependencies]
+automerge = "0.5.0"
+automerge-test = "0.4.0"
