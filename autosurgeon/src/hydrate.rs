@@ -274,6 +274,44 @@ impl<T> HydrateResultExt<Option<T>> for Result<Option<T>, HydrateError> {
     }
 }
 
+/// A convenience type to track whether a value was missing in the document
+///
+/// `autosurgeon` provides a [`Hydrate`] implementation for `Option<T>` which
+/// will return `None` if the value in the document is [`automerge::ScalarValue::Null`].
+/// This isn't always what you want, sometimes you want something to be `None`
+/// if it isn't in the document at all. `MaybeMissing<T>` provides this behaviour.
+///
+/// # Example
+///
+/// ```rust
+/// # use autosurgeon::{Hydrate, hydrate::MaybeMissing};
+/// # use automerge::transaction::Transactable;
+/// let mut doc = automerge::AutoCommit::new();
+/// let name = MaybeMissing::<String>::hydrate(&doc, &automerge::ROOT, "name".into()).unwrap();
+/// assert_eq!(name, MaybeMissing::Missing);
+///
+/// doc.put(&automerge::ROOT, "name", "Moist von Lipwig").unwrap();
+/// let name = MaybeMissing::<String>::hydrate(&doc, &automerge::ROOT, "name".into()).unwrap();
+/// assert_eq!(name, MaybeMissing::Present("Moist von Lipwig".to_string()));
+/// ```
+///
+/// Note that this can be combined with `Option<T>` to get both behaviours
+///
+/// ```rust
+/// # use autosurgeon::{Hydrate, hydrate::MaybeMissing};
+/// # use automerge::transaction::Transactable;
+/// let mut doc = automerge::AutoCommit::new();
+/// let name = MaybeMissing::<Option<String>>::hydrate(&doc, &automerge::ROOT, "name".into()).unwrap();
+/// assert_eq!(name, MaybeMissing::Missing);
+///
+/// doc.put(&automerge::ROOT, "name", "Moist von Lipwig").unwrap();
+/// let name = MaybeMissing::<Option<String>>::hydrate(&doc, &automerge::ROOT, "name".into()).unwrap();
+/// assert_eq!(name, MaybeMissing::Present(Some("Moist von Lipwig".to_string())));
+///
+/// doc.put(&automerge::ROOT, "name", automerge::ScalarValue::Null).unwrap();
+/// let name = MaybeMissing::<Option<String>>::hydrate(&doc, &automerge::ROOT, "name".into()).unwrap();
+/// assert_eq!(name, MaybeMissing::Present(None));
+/// ```
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
 pub enum MaybeMissing<T> {
     #[default]
