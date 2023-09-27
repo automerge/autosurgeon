@@ -3,6 +3,7 @@ members = [
     "autosurgeon",
     "autosurgeon-derive",
 ]
+resolver = "2"
 
 [workspace.package]
 authors = ["Alex Good <alex@memoryandthought.me>"]
