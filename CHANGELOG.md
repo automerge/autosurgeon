@@ -1,3 +1,10 @@
+## `0.8.2`
+
+* (@teohanhui) Add the `missing=` annotation which allows the user to specify a
+  function to call to construct a value if no value was found in the document 
+* (@teohanhui) Add the `MaybeMissing` which tracks whether a value was present
+  in the document at all
+
 ## `0.8.1`
 
 * Improvements to macro hygiene courtesy of @teohhanhui
