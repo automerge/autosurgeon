@@ -262,8 +262,20 @@ fn gen_newtype_struct_wrapper(
     let inner_ty = quote_spanned!(field.span()=> #inner_ty);
 
     if let Some(hydrate_with) = attrs.hydrate_with().map(|h| h.hydrate_with()) {
+        let hydrate_with = if let Some(missing_fn) = attrs.missing() {
+            quote_spanned! {field.span()=>
+                (|doc, obj, prop| {
+                    ::autosurgeon::ReadDoc::get(doc, obj, &prop)?.map_or_else(
+                        || ::std::result::Result::Ok(#missing_fn()),
+                        |_| #hydrate_with(doc, obj, prop),
+                    )
+                })
+            }
+        } else {
+            hydrate_with
+        };
         Ok(quote! {
-            impl #impl_generics ::autosurgeon::hydrate::Hydrate for #ty #ty_generics #where_clause {
+            impl #impl_generics ::autosurgeon::Hydrate for #ty #ty_generics #where_clause {
                 fn hydrate<'a, D: ::autosurgeon::ReadDoc>(
                     doc: &D,
                     obj: &::automerge::ObjId,
@@ -275,14 +287,26 @@ fn gen_newtype_struct_wrapper(
             }
         })
     } else {
+        let (hydrate_ty, unwrap_missing) = if let Some(missing_fn) = attrs.missing() {
+            (
+                quote_spanned!(field.span()=> ::autosurgeon::hydrate::MaybeMissing<#inner_ty>),
+                quote_spanned!(field.span()=> .unwrap_or_else(#missing_fn)),
+            )
+        } else {
+            (inner_ty.clone(), quote!())
+        };
         Ok(quote! {
-            impl #impl_generics ::autosurgeon::hydrate::Hydrate for #ty #ty_generics #where_clause {
+            impl #impl_generics ::autosurgeon::Hydrate for #ty #ty_generics #where_clause {
                 fn hydrate<'a, D: ::autosurgeon::ReadDoc>(
                     doc: &D,
                     obj: &::automerge::ObjId,
                     prop: ::autosurgeon::Prop<'a>,
                 ) -> ::std::result::Result<Self, ::autosurgeon::HydrateError> {
-                    let inner = #inner_ty::hydrate(doc, obj, prop)?;
+                    let inner = <#hydrate_ty as ::autosurgeon::Hydrate>::hydrate(
+                        doc,
+                        obj,
+                        prop,
+                    )?#unwrap_missing;
                     ::std::result::Result::Ok(#ty(inner))
                 }
             }

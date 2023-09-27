@@ -274,6 +274,38 @@ impl<T> HydrateResultExt<Option<T>> for Result<Option<T>, HydrateError> {
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
+pub enum MaybeMissing<T> {
+    #[default]
+    Missing,
+    Present(T),
+}
+
+impl<T: Hydrate> Hydrate for MaybeMissing<T> {
+    fn hydrate<D: ReadDoc>(
+        doc: &D,
+        obj: &automerge::ObjId,
+        prop: Prop<'_>,
+    ) -> Result<Self, HydrateError> {
+        match doc.get(obj, &prop)? {
+            None => Ok(Self::Missing),
+            Some(_) => T::hydrate(doc, obj, prop).map(Self::Present),
+        }
+    }
+}
+
+impl<T> MaybeMissing<T> {
+    pub fn unwrap_or_else<F>(self, f: F) -> T
+    where
+        F: FnOnce() -> T,
+    {
+        match self {
+            MaybeMissing::Present(x) => x,
+            MaybeMissing::Missing => f(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
