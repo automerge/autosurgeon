@@ -416,6 +416,37 @@
 //!     }
 //! }
 //! ```
+//!
+//! #### Providing default values with `missing=`
+//!
+//! Occasionally you may want to provide a default value for a field which
+//! wasn't found in the document. This can be done using the `missing` attribute.
+//! The value of the `missing` attribute should be the name of a function which
+//! returns a value of the annotated field.
+//!
+//! ```rust
+//! # use autosurgeon::{Reconcile, Hydrate, ReadDoc, Prop, HydrateError, hydrate};
+//! # use automerge::transaction::Transactable;
+//! #[derive(Hydrate)]
+//! struct Contact {
+//!     name: String,
+//!     #[autosurgeon(missing="Visibility::default")]
+//!     visibility: Visibility
+//! }
+//!
+//! #[derive(Hydrate, Default, Debug, PartialEq)]
+//! enum Visibility {
+//!     #[default]
+//!     Public,
+//!     Private,
+//! }
+//!
+//! let mut doc = automerge::AutoCommit::new();
+//! doc.put(&automerge::ROOT, "name", "Sherlock Holmes".to_string());
+//! let contact: Contact = hydrate(&doc).unwrap();
+//! assert_eq!(contact.visibility, Visibility::Public);
+//!
+//! ```
 
 #[doc = include_str!("../../README.md")]
 #[cfg(doctest)]
