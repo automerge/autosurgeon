@@ -119,6 +119,79 @@ impl Text {
         }
     }
 
+    /// Update the value of the text field by diffing it with a new string
+    ///
+    /// This is useful if you can't capture the edits to a text field as they happen (i.e. the
+    /// insertion and deletion events) but instead you just get given the new value of the field.
+    /// This method will diff the new value with the current value and convert the diff into a set
+    /// of edits which are applied to the text field. This will produce more confusing merge
+    /// results than capturing the edits directly, but sometimes it's all you can do.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// # use autosurgeon::{Hydrate, Reconcile, Text};
+    /// #[derive(Hydrate, Reconcile)]
+    /// struct TextDoc {
+    ///     content: Text,
+    /// }
+    ///
+    /// let start = TextDoc {
+    ///     content: Text::with_value("some value"),
+    /// };
+    ///
+    /// // Create the initial document
+    /// let mut doc = automerge::AutoCommit::new();
+    /// autosurgeon::reconcile(&mut doc, &start).unwrap();
+    ///
+    /// // Fork the document so we can make concurrent changes
+    /// let mut doc2 = doc.fork();
+    ///
+    /// // On one fork replace 'value' with 'day'
+    /// let mut start2 = autosurgeon::hydrate::<_, TextDoc>(&doc).unwrap();
+    /// // Note the use of `update` to replace the entire content instead of `splice`
+    /// start2.content.update("some day");
+    /// autosurgeon::reconcile(&mut doc, &start2).unwrap();
+    ///
+    /// // On the other fork replace 'some' with 'another'
+    /// let mut start3 = autosurgeon::hydrate::<_, TextDoc>(&doc2).unwrap();
+    /// start3.content.update("another value");
+    /// autosurgeon::reconcile(&mut doc2, &start3).unwrap();
+    ///
+    /// // Merge the two forks
+    /// doc.merge(&mut doc2).unwrap();
+    ///
+    /// // The result is 'another day'
+    /// let start3 = autosurgeon::hydrate::<_, TextDoc>(&doc).unwrap();
+    /// assert_eq!(start3.content.as_str(), "another day");
+    /// ```
+    pub fn update<S: AsRef<str>>(&mut self, new_value: S) {
+        match &mut self.0 {
+            State::Fresh(v) => *v = new_value.as_ref().to_string(),
+            State::Rehydrated { value, .. } => {
+                let mut idx = 0;
+                let old = value.clone();
+                for change in similar::TextDiff::from_graphemes(old.as_str(), new_value.as_ref())
+                    .iter_all_changes()
+                {
+                    match change.tag() {
+                        similar::ChangeTag::Delete => {
+                            let len = change.value().len();
+                            self.splice(idx, len as isize, "");
+                        }
+                        similar::ChangeTag::Insert => {
+                            self.splice(idx, 0, change.value());
+                            idx += change.value().len();
+                        }
+                        similar::ChangeTag::Equal => {
+                            idx += change.value().len();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     pub fn as_str(&self) -> &str {
         match &self.0 {
             State::Fresh(v) => v,
