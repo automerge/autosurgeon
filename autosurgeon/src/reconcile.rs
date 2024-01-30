@@ -975,8 +975,16 @@ pub fn hydrate_key<'a, D: ReadDoc, H: crate::Hydrate + Clone>(
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Cow;
     use super::*;
     use automerge_test::{assert_doc, list, map};
+
+    struct ContactBook {
+        contacts: Vec<Contact>,
+        // I tried to set this id to u8 but there's
+        // no From impl for assert_doc!
+        id: u64, // Who has more than 255 rolodexes anyway?
+    }
 
     struct Contact {
         name: String,
@@ -1000,13 +1008,51 @@ mod tests {
     }
 
     impl Reconcile for Contact {
-        type Key<'a> = NoKey;
+        type Key<'a> = Cow<'a, u64>;
         fn reconcile<R: Reconciler>(&self, mut reconciler: R) -> Result<(), R::Error> {
             let mut map = reconciler.map()?;
             map.put("addresses", &self.addresses)?;
             map.put("name", &self.name)?;
             map.put("id", self.id)?;
             Ok(())
+        }
+
+        fn hydrate_key<'a, D: ReadDoc>(
+                doc: &D,
+                obj: &automerge::ObjId,
+                prop: Prop<'_>,
+            ) -> Result<LoadKey<Self::Key<'a>>, ReconcileError> {
+            hydrate_key(doc, obj, prop, "id".into())     
+        }
+
+        fn key(&self) -> LoadKey<Cow<'_, u64>> {
+            let k = LoadKey::Found(Cow::Borrowed(&self.id));
+            println!("---got k {:#?}", k);
+            k
+         }
+    }
+
+    impl Reconcile for ContactBook {
+        type Key<'a> = Cow<'a, u64>;
+        fn reconcile<R: Reconciler>(&self, mut reconciler: R) -> Result<(), R::Error> {
+            let mut map = reconciler.map()?;
+            map.put("contacts", &self.contacts)?;
+            map.put("id", self.id)?;
+            Ok(())
+        }
+
+        fn hydrate_key<'a, D: ReadDoc>(
+            doc: &D,
+            obj: &automerge::ObjId,
+            prop: Prop<'_>,
+        ) -> Result<LoadKey<Self::Key<'a>>, ReconcileError> {
+            hydrate_key(doc, obj, prop, "id".into())
+        }
+
+        fn key(&self) -> LoadKey<Cow<'_, u64>> {
+            let k = LoadKey::Found(Cow::Borrowed(&self.id));
+            println!("---got k {:#?}", k);
+            k
         }
     }
 
@@ -1092,5 +1138,171 @@ mod tests {
                 }
             }}
         );
+    }
+
+    #[test]
+    fn test_with_transaction_commit_log() {
+        let mut doc = automerge::Automerge::new();
+
+        // Create Bob, this should result in one change on the document.
+        let bob = Contact {
+            name: "bob".to_string(),
+            id: 1,
+            addresses: vec![Address {
+                line_one: "line one".to_string(),
+                line_two: "line two".to_string(),
+            }],
+        };
+        let _tx_res = doc
+            .transact_with::<_, _, automerge::AutomergeError, _>(
+                |_| automerge::transaction::CommitOptions::default().with_message("Reconcile Bob".to_owned()),
+                |tx| {
+                    reconcile(tx, &bob).unwrap();
+                    Ok(())
+                });
+        let changes = doc.get_changes(&[]).unwrap();
+        assert_eq!(changes.len(), 1);
+
+        
+        // Take two should create no changes
+        let bob = Contact {
+            name: "bob".to_string(),
+            id: 1,
+            addresses: vec![Address {
+                line_one: "line one".to_string(),
+                line_two: "line two".to_string(),
+            }],
+        };
+        let _tx_res = doc
+            .transact_with::<_, _, automerge::AutomergeError, _>(
+                |_| automerge::transaction::CommitOptions::default().with_message("Reconcile Bob Again, Equal".to_owned()),
+                |tx| {
+                    reconcile(tx, &bob).unwrap();
+                    Ok(())
+                });
+        let changes = doc.get_changes(&[]).unwrap();
+        assert_eq!(changes.len(), 1);
+
+    }
+
+    #[test]
+    fn test_reconcile_prop_behavior() {
+        let mut doc = automerge::Automerge::new();        
+        
+        // Take two should create no changes
+        let bob = Contact {
+            name: "bob".to_string(),
+            id: 1,
+            addresses: vec![Address {
+                line_one: "line one".to_string(),
+                line_two: "line two".to_string(),
+            }],
+        };
+        let alice = Contact {
+            name: "alice".to_string(),
+            id: 2,
+            addresses: vec![Address {
+                line_one: "line one".to_string(),
+                line_two: "line two".to_string(),
+            }],
+        };
+
+        let contacts = ContactBook {
+            contacts: vec![bob, alice], 
+            id: 129
+        };
+
+        let _tx_res = doc
+            .transact_with::<_, _, automerge::AutomergeError, _>(
+                |_| automerge::transaction::CommitOptions::default().with_message("Set Contact Book".to_owned()),
+                |tx| {
+                    reconcile(tx, &contacts).unwrap();
+                    Ok(())
+                });
+        let changes = doc.get_changes(&[]).unwrap();
+        assert_eq!(changes.len(), 1);
+
+        assert_doc!(
+            &doc,
+            {map! {
+                "id" => { 129_u64 },
+                "contacts" => {list! {
+                    {map! {
+                        "name" => { "bob" },
+                        "id" => { 1_u64 },
+                        "addresses" => { list!{
+                            { map! {
+                                "line_one" => { "line one" },
+                                "line_two" => { "line two" },
+                            }}
+                        }}
+                    }}, { map! {
+                        "name" => { "alice" },
+                        "id" => { 2_u64 },
+                        "addresses" => { list!{
+                            { map! {
+                                "line_one" => { "line one" },
+                                "line_two" => { "line two" },
+                            }}
+                        }}
+                    }}
+                }}            
+            }}
+        );
+
+        // Let's change alice and reconcile_prop
+        // It should be noted here that we're referring to the _index_ of Alice, not to their Key
+        // If stable object IDs are more important than having the ability to control total ordering in your
+        // Automerge document then you should consider using Maps, as incremental updates do not require indexing
+        let alice = Contact {
+            name: "alice".to_string(),
+            id: 2,
+            addresses: vec![Address {
+                line_one: "33 Rockefeller Center".to_string(),
+                line_two: "New York".to_string(),
+            }],
+        };
+        let _tx_res = doc
+            .transact_with::<_, _, automerge::AutomergeError, _>(
+                |_| automerge::transaction::CommitOptions::default().with_message("Set Contact Book".to_owned()),
+                |tx| {
+                    use automerge::{Value, ObjType};
+                    let Ok(Some((Value::Object(ObjType::List), id))) = tx.get(&automerge::ROOT, "contacts") else {
+                        panic!("unable to get contacts object ID");
+                    };
+                    reconcile_prop(tx, id, 1_usize, alice).unwrap();
+                    Ok(())
+                });
+        let changes = doc.get_changes(&[]).unwrap();
+        assert_eq!(changes.len(), 2);
+
+        assert_doc!(
+            &doc,
+            {map! {
+                "id" => { 129_u64 },
+                "contacts" => {list! {
+                    {map! {
+                        "name" => { "bob" },
+                        "id" => { 1_u64 },
+                        "addresses" => { list!{
+                            { map! {
+                                "line_one" => { "line one" },
+                                "line_two" => { "line two" },
+                            }}
+                        }}
+                    }}, { map! {
+                        "name" => { "alice" },
+                        "id" => { 2_u64 },
+                        "addresses" => { list!{
+                            { map! {
+                                "line_one" => { "33 Rockefeller Center" },
+                                "line_two" => { "New York" },
+                            }}
+                        }}
+                    }}
+                }}            
+            }}
+        );
+
     }
 }
