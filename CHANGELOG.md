@@ -1,3 +1,9 @@
+## `0.8.3`
+
+* Add `Text::update` which allows you to specify changes to text by just
+  passing the latest version of the text rather than as individual splice
+  calls.
+
 ## `0.8.2`
 
 * (@teohanhui) Add the `missing=` annotation which allows the user to specify a
