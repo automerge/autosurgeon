@@ -16,13 +16,11 @@ pub trait ReadDoc {
     ) -> Result<Option<(Value<'_>, ObjId)>, AutomergeError>;
 
     fn object_type<O: AsRef<ObjId>>(&self, obj: O) -> Option<am::ObjType>;
-    fn map_range<'a, O: AsRef<ObjId>, R: RangeBounds<String>>(
-        &'a self,
-        obj: O,
-        range: R,
-    ) -> am::iter::MapRange<'a, R>
+    fn map_range<'a, O, R>(&'a self, obj: O, range: R) -> am::iter::MapRange<'a, R>
     where
-        R: RangeBounds<String> + 'a;
+        R: RangeBounds<String> + 'a,
+        O: AsRef<ObjId>,
+        R: RangeBounds<String>;
 
     fn list_range<O: AsRef<ObjId>, R: RangeBounds<usize>>(
         &self,
@@ -107,13 +105,11 @@ impl ReadDoc for am::AutoCommit {
             .unwrap_or(None)
     }
 
-    fn map_range<'a, O: AsRef<ObjId>, R: RangeBounds<String>>(
-        &'a self,
-        obj: O,
-        range: R,
-    ) -> am::iter::MapRange<'a, R>
+    fn map_range<'a, O, R>(&'a self, obj: O, range: R) -> am::iter::MapRange<'a, R>
     where
         R: RangeBounds<String> + 'a,
+        O: AsRef<ObjId>,
+        R: RangeBounds<String>,
     {
         am::ReadDoc::map_range(self, obj, range)
     }
