@@ -206,6 +206,14 @@ impl<S: AsRef<str>> From<S> for Text {
     }
 }
 
+impl std::cmp::PartialEq for Text {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl std::cmp::Eq for Text {}
+
 #[derive(Clone)]
 enum State {
     Fresh(String),
@@ -296,5 +304,18 @@ mod tests {
 
         let result: Text = hydrate_prop(&doc1, &automerge::ROOT, "text").unwrap();
         assert_eq!(result.as_str(), "all that glitters is not gold");
+    }
+
+    #[test]
+    fn test_partial_eq() {
+        let text = Text::with_value("hello");
+        assert_eq!(text, Text::with_value("hello"));
+        assert_ne!(text, Text::with_value("world"));
+    }
+
+    #[test]
+    fn test_eq() {
+        let text: Text = Text::with_value("hello");
+        assert_eq!(text, text);
     }
 }
