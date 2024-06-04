@@ -1,3 +1,9 @@
+## `0.8.4`
+
+* Implement `Reconcile` for `MaybeMissing` so that `derive(Reconcile)` works
+  for types containing a `MaybeMissing` field.
+
+
 ## `0.8.3`
 
 * Add `Text::update` which allows you to specify changes to text by just
