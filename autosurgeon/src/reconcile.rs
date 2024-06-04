@@ -1093,4 +1093,49 @@ mod tests {
             }}
         );
     }
+
+    struct Foo {
+        bar: crate::hydrate::MaybeMissing<String>,
+    }
+
+    impl crate::Reconcile for Foo {
+        type Key<'a> = NoKey;
+
+        fn reconcile<R: Reconciler>(&self, mut reconciler: R) -> Result<(), R::Error> {
+            let mut map = reconciler.map()?;
+            map.put("bar", &self.bar)?;
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn reconcile_maybe_missing_present() {
+        let mut doc = automerge::AutoCommit::new();
+        reconcile(
+            &mut doc,
+            &Foo {
+                bar: crate::MaybeMissing::Present("baz".to_string()),
+            },
+        )
+        .unwrap();
+        let val = doc.get(&automerge::ROOT, "bar").unwrap().unwrap();
+        assert_eq!(
+            val.0,
+            automerge::Value::Scalar(std::borrow::Cow::Owned(ScalarValue::Str("baz".into())))
+        );
+    }
+
+    #[test]
+    fn reconcile_maybe_missing_not_present() {
+        let mut doc = automerge::AutoCommit::new();
+        reconcile(
+            &mut doc,
+            &Foo {
+                bar: crate::MaybeMissing::Missing,
+            },
+        )
+        .unwrap();
+        let val = doc.get(&automerge::ROOT, "bar").unwrap();
+        assert!(val.is_none());
+    }
 }

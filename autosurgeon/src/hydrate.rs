@@ -298,7 +298,7 @@ impl<T> HydrateResultExt<Option<T>> for Result<Option<T>, HydrateError> {
 /// Note that this can be combined with `Option<T>` to get both behaviours
 ///
 /// ```rust
-/// # use autosurgeon::{Hydrate, hydrate::MaybeMissing};
+/// # use autosurgeon::{Hydrate, MaybeMissing};
 /// # use automerge::transaction::Transactable;
 /// let mut doc = automerge::AutoCommit::new();
 /// let name = MaybeMissing::<Option<String>>::hydrate(&doc, &automerge::ROOT, "name".into()).unwrap();
@@ -328,6 +328,17 @@ impl<T: Hydrate> Hydrate for MaybeMissing<T> {
         match doc.get(obj, &prop)? {
             None => Ok(Self::Missing),
             Some(_) => T::hydrate(doc, obj, prop).map(Self::Present),
+        }
+    }
+}
+
+impl<T: crate::Reconcile> crate::Reconcile for MaybeMissing<T> {
+    type Key<'a> = T::Key<'a>;
+
+    fn reconcile<R: crate::Reconciler>(&self, reconciler: R) -> Result<(), R::Error> {
+        match self {
+            Self::Missing => Ok(()),
+            Self::Present(val) => val.reconcile(reconciler),
         }
     }
 }
