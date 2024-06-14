@@ -10,6 +10,8 @@ pub(crate) mod map;
 ///
 /// There are no required methods on this trait. Instead implementors should choose the `hydrate_*`
 /// method which matches the automerge types they wish to hydrate.
+/// 
+/// For example, for a Rust newtype based on `String`, implement the `hydrate_string` method,
 ///
 /// ```rust
 /// # use autosurgeon::{Hydrate, HydrateError};
