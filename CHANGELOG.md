@@ -1,3 +1,7 @@
+## `0.8.5`
+
+* Implement `PartialEq` and `Eq` for `Text`
+
 ## `0.8.4`
 
 * Implement `Reconcile` for `MaybeMissing` so that `derive(Reconcile)` works
