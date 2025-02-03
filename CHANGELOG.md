@@ -1,3 +1,7 @@
+## `0.8.6
+
+* Update to `automerge` 0.6.0
+
 ## `0.8.5`
 
 * Implement `PartialEq` and `Eq` for `Text`
