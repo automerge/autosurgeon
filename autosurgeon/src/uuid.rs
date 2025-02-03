@@ -58,7 +58,7 @@ mod tests {
         let uuid = Uuid::new_v4();
         reconcile_prop(&mut doc, ObjId::Root, "secret", uuid).unwrap();
 
-        let hydrated_uuid = hydrate_prop(&doc, ObjId::Root, "secret").unwrap();
+        let hydrated_uuid: Uuid = hydrate_prop(&doc, ObjId::Root, "secret").unwrap();
 
         assert_eq!(uuid, hydrated_uuid);
     }

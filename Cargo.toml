@@ -14,4 +14,4 @@ license = "MIT"
 
 [workspace.dependencies]
 automerge = "0.6"
-automerge-test = "0.4"
+automerge-test = "0.5"
