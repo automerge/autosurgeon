@@ -135,8 +135,11 @@ impl ReadDoc for am::AutoCommit {
     }
 }
 
-impl<'a> ReadDoc for am::transaction::Transaction<'a> {
-    type Parents<'b> = am::Parents<'b> where Self: 'b;
+impl ReadDoc for am::transaction::Transaction<'_> {
+    type Parents<'b>
+        = am::Parents<'b>
+    where
+        Self: 'b;
     fn get_heads(&self) -> Vec<am::ChangeHash> {
         am::transaction::Transactable::base_heads(self)
     }

@@ -7,7 +7,7 @@ pub enum Prop<'a> {
     Index(u32),
 }
 
-impl<'a> std::fmt::Display for Prop<'a> {
+impl std::fmt::Display for Prop<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Key(s) => write!(f, "{}", s),
@@ -16,7 +16,7 @@ impl<'a> std::fmt::Display for Prop<'a> {
     }
 }
 
-impl<'a> From<&Prop<'a>> for automerge::Prop {
+impl From<&Prop<'_>> for automerge::Prop {
     fn from(p: &Prop) -> Self {
         match p {
             Prop::Key(k) => automerge::Prop::Map(k.to_string()),
@@ -49,7 +49,7 @@ impl<'a> From<&'a str> for Prop<'a> {
     }
 }
 
-impl<'a> From<am::Prop> for Prop<'a> {
+impl From<am::Prop> for Prop<'_> {
     fn from(p: am::Prop) -> Self {
         match p {
             am::Prop::Map(k) => Prop::Key(Cow::Owned(k)),

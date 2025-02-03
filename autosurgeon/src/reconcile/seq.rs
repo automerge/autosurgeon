@@ -58,7 +58,7 @@ struct Hook<'a, T, S> {
     items: &'a [T],
 }
 
-impl<'a, T, S> similar::algorithms::DiffHook for Hook<'a, T, S>
+impl<T, S> similar::algorithms::DiffHook for Hook<'_, T, S>
 where
     T: Reconcile,
     S: SeqReconciler,

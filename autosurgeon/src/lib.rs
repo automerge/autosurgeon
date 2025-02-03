@@ -18,7 +18,7 @@
 //! ## Feature Flags
 //!
 //! * `uuid` - Includes implementations of `Reconcile` and `Hydrate` for the [`Uuid`](https://docs.rs/uuid/latest/uuid/) crate which will
-//! reconcile to a [`automerge::ScalarValue::Bytes`]
+//!   reconcile to a [`automerge::ScalarValue::Bytes`]
 //!
 //! ## Example
 //!

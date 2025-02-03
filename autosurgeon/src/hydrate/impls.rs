@@ -100,7 +100,7 @@ impl<T: Hydrate> Hydrate for Option<T> {
     }
 }
 
-impl<'a, T: Hydrate + Clone> Hydrate for Cow<'a, T> {
+impl<T: Hydrate + Clone> Hydrate for Cow<'_, T> {
     fn hydrate<D: ReadDoc>(
         doc: &D,
         obj: &automerge::ObjId,
