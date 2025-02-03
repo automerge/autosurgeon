@@ -62,7 +62,7 @@ impl<'a> TryFrom<&'a syn::Variant> for Variant<'a> {
     }
 }
 
-impl<'a> Variant<'a> {
+impl Variant<'_> {
     fn match_arm(
         &self,
         reconciler_ident: &syn::Ident,
@@ -155,7 +155,7 @@ enum EnumKeyInnerType<'a> {
     NoInnerKeyTuple,
 }
 
-impl<'a> EnumKeyInnerType<'a> {
+impl EnumKeyInnerType<'_> {
     fn get_key(&self, key_type_name: &syn::Ident, variant_name: &syn::Ident) -> TokenStream {
         match self {
             Self::Unit => {
@@ -340,7 +340,7 @@ struct EnumKeyVariant<'a> {
     ty: EnumKeyInnerType<'a>,
 }
 
-impl<'a> EnumKeyVariant<'a> {
+impl EnumKeyVariant<'_> {
     fn non_unit_match_arm(
         &self,
         outer_name: &syn::Ident,
@@ -642,7 +642,7 @@ struct EnumUnnamedField<'a> {
     attrs: attrs::Field,
 }
 
-impl<'a> VariantField for EnumUnnamedField<'a> {
+impl VariantField for EnumUnnamedField<'_> {
     fn name(&self) -> syn::Ident {
         format_ident!("field_{}", self.idx)
     }
@@ -652,13 +652,13 @@ impl<'a> VariantField for EnumUnnamedField<'a> {
     }
 }
 
-impl<'a> EnumUnnamedField<'a> {
+impl EnumUnnamedField<'_> {
     fn name(&self) -> syn::Ident {
         format_ident!("field_{}", self.idx)
     }
 }
 
-impl<'a> Field for EnumUnnamedField<'a> {
+impl Field for EnumUnnamedField<'_> {
     fn attrs(&self) -> &[syn::Attribute] {
         &self.field.attrs
     }
@@ -699,7 +699,7 @@ struct EnumNamedField<'a> {
     name: &'a syn::Ident,
 }
 
-impl<'a> VariantField for EnumNamedField<'a> {
+impl VariantField for EnumNamedField<'_> {
     fn name(&self) -> syn::Ident {
         self.name.clone()
     }

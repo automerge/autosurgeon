@@ -139,7 +139,7 @@ impl<'a> NamedField<'a> {
     }
 }
 
-impl<'a> Field for NamedField<'a> {
+impl Field for NamedField<'_> {
     fn attrs(&self) -> &[syn::Attribute] {
         &self.field.attrs
     }
@@ -202,7 +202,7 @@ impl<'a> TupleField<'a> {
     }
 }
 
-impl<'a> Field for TupleField<'a> {
+impl Field for TupleField<'_> {
     fn attrs(&self) -> &[syn::Attribute] {
         &self.field.attrs
     }

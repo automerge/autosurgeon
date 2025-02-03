@@ -415,14 +415,22 @@ struct RootReconciler<'a, D> {
 
 impl<'a, D: Doc> Reconciler for RootReconciler<'a, D> {
     type Error = ReconcileError;
-    type Map<'b> = InMap<'b, D>
-        where Self: 'b;
-    type Seq<'b> = InSeq<'b, D>
-        where Self: 'b;
-    type Text<'b> = InText<'b, D>
-        where Self: 'b;
-    type Counter<'b> = AtCounter<'b, D>
-        where Self: 'b;
+    type Map<'b>
+        = InMap<'b, D>
+    where
+        Self: 'b;
+    type Seq<'b>
+        = InSeq<'b, D>
+    where
+        Self: 'b;
+    type Text<'b>
+        = InText<'b, D>
+    where
+        Self: 'b;
+    type Counter<'b>
+        = AtCounter<'b, D>
+    where
+        Self: 'b;
 
     fn none(&mut self) -> Result<(), Self::Error> {
         Err(ReconcileError::TopLevelNotMap)
@@ -486,7 +494,7 @@ enum PropAction<'a> {
     Insert(u32),
 }
 
-impl<'a> PropAction<'a> {
+impl PropAction<'_> {
     fn get_target<'b, D: Doc>(
         &self,
         doc: &'b D,
@@ -530,16 +538,24 @@ struct PropReconciler<'a, D> {
     action: PropAction<'a>,
 }
 
-impl<'a, D: Doc> Reconciler for PropReconciler<'a, D> {
+impl<D: Doc> Reconciler for PropReconciler<'_, D> {
     type Error = ReconcileError;
-    type Map<'b> = InMap<'b, D>
-        where Self: 'b;
-    type Seq<'b> = InSeq<'b, D>
-        where Self: 'b;
-    type Text<'b> = InText<'b, D>
-        where Self: 'b;
-    type Counter<'b> = AtCounter<'b, D>
-        where Self: 'b;
+    type Map<'b>
+        = InMap<'b, D>
+    where
+        Self: 'b;
+    type Seq<'b>
+        = InSeq<'b, D>
+    where
+        Self: 'b;
+    type Text<'b>
+        = InText<'b, D>
+    where
+        Self: 'b;
+    type Counter<'b>
+        = AtCounter<'b, D>
+    where
+        Self: 'b;
 
     fn none(&mut self) -> Result<(), Self::Error> {
         self.action
@@ -659,7 +675,7 @@ struct AtCounter<'a, D> {
     action: &'a PropAction<'a>,
 }
 
-impl<'a, D: Doc> CounterReconciler for AtCounter<'a, D> {
+impl<D: Doc> CounterReconciler for AtCounter<'_, D> {
     type Error = ReconcileError;
 
     fn increment(&mut self, by: i64) -> Result<(), Self::Error> {
@@ -703,10 +719,12 @@ struct InMap<'a, D> {
     current_obj: automerge::ObjId,
 }
 
-impl<'a, D: Doc> MapReconciler for InMap<'a, D> {
+impl<D: Doc> MapReconciler for InMap<'_, D> {
     type Error = ReconcileError;
-    type EntriesIter<'b> = InMapEntries<'b>
-        where Self: 'b;
+    type EntriesIter<'b>
+        = InMapEntries<'b>
+    where
+        Self: 'b;
 
     fn entries(&self) -> Self::EntriesIter<'_> {
         InMapEntries {
@@ -779,10 +797,12 @@ impl<'a> Iterator for ItemsInSeq<'a> {
     }
 }
 
-impl<'a, D: Doc> SeqReconciler for InSeq<'a, D> {
+impl<D: Doc> SeqReconciler for InSeq<'_, D> {
     type Error = ReconcileError;
-    type ItemIter<'b> = ItemsInSeq<'b>
-        where Self: 'b;
+    type ItemIter<'b>
+        = ItemsInSeq<'b>
+    where
+        Self: 'b;
 
     fn items<'b>(&'_ self) -> Self::ItemIter<'_> {
         ItemsInSeq {
@@ -844,7 +864,7 @@ struct InText<'a, D> {
     obj: automerge::ObjId,
 }
 
-impl<'a, D: Doc> TextReconciler for InText<'a, D> {
+impl<D: Doc> TextReconciler for InText<'_, D> {
     type Error = ReconcileError;
 
     fn splice<S: AsRef<str>>(

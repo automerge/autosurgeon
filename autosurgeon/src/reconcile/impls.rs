@@ -56,7 +56,7 @@ impl Reconcile for str {
     }
 }
 
-impl<'a, T: Reconcile + ?Sized> Reconcile for &'a T {
+impl<T: Reconcile + ?Sized> Reconcile for &'_ T {
     type Key<'b> = T::Key<'b>;
     fn reconcile<R: Reconciler>(&self, reconciler: R) -> Result<(), R::Error> {
         (*self).reconcile(reconciler)
@@ -171,6 +171,7 @@ macro_rules! int_impl {
                 Ok(match doc.get(obj, &prop)? {
                     Some((Value::Scalar(s), _)) => {
                         if let ScalarValue::$from(i) = s.as_ref() {
+                            #[allow(irrefutable_let_patterns)]
                             if let Ok(v) = $ty::try_from(*i) {
                                 LoadKey::Found(v)
                             } else {
