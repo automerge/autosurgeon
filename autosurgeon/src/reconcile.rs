@@ -938,8 +938,8 @@ pub fn reconcile_prop<'a, D: Doc, R: Reconcile, O: AsRef<automerge::ObjId>, P: I
 ///
 /// This is useful when you specifically want to insert an object which does not implement
 /// `Reconcile::key` into a sequence
-pub fn reconcile_insert<R: Reconcile>(
-    doc: &mut automerge::AutoCommit,
+pub fn reconcile_insert<D: Doc, R: Reconcile>(
+    doc: &mut D,
     obj: automerge::ObjId,
     idx: usize,
     value: R,
