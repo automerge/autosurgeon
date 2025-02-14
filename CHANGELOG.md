@@ -1,3 +1,8 @@
+## `0.8.7`
+
+* Generalize the type of the doc argument to `reconcile_insert` to allow
+  anything which implements `Doc` and not just `AutoCommit`
+
 ## `0.8.6
 
 * Update to `automerge` 0.6.0
