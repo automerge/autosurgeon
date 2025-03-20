@@ -1,8 +1,5 @@
 [workspace]
-members = [
-    "autosurgeon",
-    "autosurgeon-derive",
-]
+members = ["autosurgeon", "autosurgeon-derive"]
 resolver = "2"
 
 [workspace.package]
@@ -13,5 +10,6 @@ repository = "https://github.com/automerge/autosurgeon"
 license = "MIT"
 
 [workspace.dependencies]
-automerge = "0.6"
-automerge-test = "0.5"
+automerge = { git = "https://github.com/automerge/automerge.git", branch = "op_set2" }
+automerge-test = { git = "https://github.com/automerge/automerge.git", branch = "op_set2" }
+#automerge-test = "0.5"

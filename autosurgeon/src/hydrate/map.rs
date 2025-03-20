@@ -1,6 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap},
-    hash::Hash,
+    borrow::Cow, collections::{BTreeMap, HashMap}, hash::Hash
 };
 
 use automerge::{self as am, ObjType};
@@ -39,7 +38,7 @@ pub(crate) fn hydrate_map_impl<'a, F, D, K, V, M>(
     extract_key: F,
 ) -> Result<M, crate::HydrateError>
 where
-    F: Fn(&'a str) -> Result<K, crate::HydrateError>,
+    F: for<'b> Fn(&'b str) -> Result<K, crate::HydrateError>,
     D: crate::ReadDoc,
     V: Hydrate,
     M: FromIterator<(K, V)>,
@@ -54,8 +53,8 @@ where
         ObjType::Map | ObjType::Table => doc
             .map_range(obj.clone(), ..)
             .map(move |am::iter::MapRangeItem { key, .. }| {
+                let key_parsed: K = extract_key(key.as_ref())?;
                 let val = V::hydrate(doc, obj, key.into())?;
-                let key_parsed: K = extract_key(key)?;
                 Ok((key_parsed, val))
             })
             .collect(),

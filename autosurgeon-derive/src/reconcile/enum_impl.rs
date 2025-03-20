@@ -567,7 +567,7 @@ impl<'a> EnumKey<'a> {
                                 ::autosurgeon::reconcile::LoadKey::KeyNotFound,
                             );
                         };
-                        match discriminant_str {
+                        match discriminant_str.as_ref() {
                             #(#non_unit_match_arms)*
                             _ => ::std::result::Result::Ok(
                                 ::autosurgeon::reconcile::LoadKey::KeyNotFound,
