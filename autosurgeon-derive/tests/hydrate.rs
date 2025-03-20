@@ -53,6 +53,7 @@ fn hydrate_newtype_struct() {
 
 // Just here to check that generics are propagated correctly
 #[derive(Hydrate)]
+#[allow(dead_code)]
 struct Wrapped<T>(T);
 
 #[derive(Debug, Hydrate, PartialEq)]

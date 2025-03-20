@@ -1,4 +1,4 @@
-use std::ops::RangeFull;
+use std::borrow::Cow;
 
 use automerge::ScalarValue;
 
@@ -100,7 +100,7 @@ pub trait Reconciler {
 /// pointing at an already existing map in the underlying document or transaction.
 pub trait MapReconciler {
     type Error: std::error::Error + From<StaleHeads>;
-    type EntriesIter<'a>: Iterator<Item = (&'a str, automerge::Value<'a>)>
+    type EntriesIter<'a>: Iterator<Item = (Cow<'a, str>, automerge::ValueRef<'a>)>
     where
         Self: 'a;
 
@@ -140,7 +140,7 @@ pub trait MapReconciler {
     }
 
     /// Remove any entries that do not satisfy the given predicate.
-    fn retain<F: FnMut(&str, automerge::Value) -> bool>(
+    fn retain<F: FnMut(&str, automerge::ValueRef<'_>) -> bool>(
         &mut self,
         mut pred: F,
     ) -> Result<(), Self::Error> {
@@ -148,7 +148,7 @@ pub trait MapReconciler {
         // an addition to Automerge
         let mut delenda = Vec::new();
         for (k, v) in self.entries() {
-            if !pred(k, v) {
+            if !pred(k.as_ref(), v) {
                 delenda.push(k.to_string());
             }
         }
@@ -162,7 +162,7 @@ pub trait MapReconciler {
 /// A node in the document which is an `automerge::List`
 pub trait SeqReconciler {
     type Error: std::error::Error + From<StaleHeads>;
-    type ItemIter<'a>: Iterator<Item = automerge::Value<'a>>
+    type ItemIter<'a>: Iterator<Item = automerge::ValueRef<'a>>
     where
         Self: 'a;
 
@@ -766,11 +766,11 @@ impl<D: Doc> MapReconciler for InMap<'_, D> {
 }
 
 struct InMapEntries<'a> {
-    map_range: automerge::iter::MapRange<'a, RangeFull>,
+    map_range: automerge::iter::MapRange<'a>,
 }
 
 impl<'a> Iterator for InMapEntries<'a> {
-    type Item = (&'a str, automerge::Value<'a>);
+    type Item = (Cow<'a, str>, automerge::ValueRef<'a>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.map_range
@@ -786,11 +786,11 @@ struct InSeq<'a, D> {
 }
 
 struct ItemsInSeq<'a> {
-    list_range: automerge::iter::ListRange<'a, RangeFull>,
+    list_range: automerge::iter::ListRange<'a>,
 }
 
 impl<'a> Iterator for ItemsInSeq<'a> {
-    type Item = automerge::Value<'a>;
+    type Item = automerge::ValueRef<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.list_range.next().map(|i| i.value)
