@@ -1,3 +1,17 @@
+# `0.9.0`
+
+* Update to `automerge` 0.7.0
+
+The update to `automerge` results in a few breaking changes we have to pass on:
+
+* The `MapReonciler::EntriesIter` type should now be an iterator over (Cow<'a,
+  str>, automerge::ValueRef<'a>). This is the item for automerge's
+  `MapRangeIter` so this should require no syntactic changes
+* The `SeqReconciler::ItemIter` should now be an iterator over
+  `automerge::ValueRef<'a>`. As above this is the item for automerge's
+  `ListRangeIter` so this should require no syntactic changes
+
+
 ## `0.8.7`
 
 * Generalize the type of the doc argument to `reconcile_insert` to allow
@@ -26,7 +40,7 @@
 ## `0.8.2`
 
 * (@teohanhui) Add the `missing=` annotation which allows the user to specify a
-  function to call to construct a value if no value was found in the document 
+  function to call to construct a value if no value was found in the document
 * (@teohanhui) Add the `MaybeMissing` which tracks whether a value was present
   in the document at all
 
@@ -42,7 +56,7 @@
 ## `0.7.1`
 
 No changes, this release is the same as 0.7.0, but I (Alex) published the wrong
-code to crates.io for 0.7.0 due to being quite sleepy so I had to yank and 
+code to crates.io for 0.7.0 due to being quite sleepy so I had to yank and
 publish 0.7.1
 
 ## `0.7.0`
