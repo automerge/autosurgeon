@@ -76,7 +76,7 @@ impl Text {
     ///
     /// * pos - The index to start the splice at
     /// * del - The number of characters to delete. This can be negative to indicate deleting `del`
-    ///         characters preceding `pos`
+    ///   characters preceding `pos`
     /// * insert - The characters to insert
     ///
     /// The `pos` index uses the same logic as [`String::replace_range`]. This means
