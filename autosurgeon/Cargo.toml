@@ -18,6 +18,7 @@ uuid = { version = "1.2.2", optional = true }
 
 [dev-dependencies]
 automerge-test = { workspace = true }
+uuid = { version = "1.2.2", features = ["v4"] }
 
 [features]
 uuid = ["dep:uuid"]
