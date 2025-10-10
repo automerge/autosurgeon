@@ -139,6 +139,122 @@ where
     Ok(())
 }
 
+macro_rules! tuple_impl {
+    ($hook_ar:ident, $($idx:tt $ty:tt),+) => {
+        pastey::paste! {
+            impl<$($ty,)+> Reconcile for ($($ty,)+)
+                where $($ty: Reconcile,)+ {
+                type Key<'a> = NoKey;
+
+                fn reconcile<R: Reconciler>(&self, mut reconciler: R) -> Result<(), R::Error>
+                {
+                    let mut seq = reconciler.seq()?;
+                    let old_len = seq.len()?;
+                    let arity = 0;
+                    $(
+                        let arity = arity.max($idx);
+                    )+
+                    for ii in (arity + 1)..old_len {
+                        seq.delete(ii)?;
+                    }
+                    $(
+                        if $idx < old_len {
+                            seq.set($idx, &self.$idx)?;
+                        } else {
+                            seq.insert($idx, &self.$idx)?;
+                        }
+                    )+
+
+                    Ok(())
+                }
+            }
+            /*
+            struct [<$hook_ar  Hook>]<'a, $($ty, )+ S> {
+                idx: usize,
+                seq: &'a mut S,
+                tuple: &'a($($ty, )+),
+            }
+
+            impl<'a, $($ty, )+ S> similar::algorithms::DiffHook for [<$hook_ar  Hook>]<'a, $($ty, )+ S>
+            where
+                $($ty: Reconcile,)+
+                S: SeqReconciler,
+            {
+                type Error = S::Error;
+                fn equal(
+                    &mut self,
+                    _old_index: usize,
+                    new_index: usize,
+                    len: usize,
+                ) -> Result<(), Self::Error> {
+                    $(if $idx >= new_index && $idx < (new_index + len){
+                        self.seq.set(self.idx, &self.tuple.$idx)?;
+                        self.idx += 1;
+                    })+;
+                    Ok(())
+                }
+
+                fn delete(
+                    &mut self,
+                    _old_index: usize,
+                    old_len: usize,
+                    _new_index: usize,
+                ) -> Result<(), Self::Error> {
+                    for _ in 0..old_len {
+                        self.seq.delete(self.idx)?;
+                    }
+                    Ok(())
+                }
+
+                fn insert(
+                    &mut self,
+                    _old_index: usize,
+                    new_index: usize,
+                    new_len: usize,
+                ) -> Result<(), Self::Error> {
+                    for elem in &self.items[new_index..(new_index + new_len)] {
+                        self.seq.insert(self.idx, elem)?;
+                        self.idx += 1;
+                    }
+                    $(if $idx >= new_index && $idx < (new_index + new_len){
+                        self.seq.insert(self.idx, &self.tuple.$idx)?;
+                        self.idx += 1;
+                    })+;
+                    Ok(())
+                }
+            }
+            */
+        }
+
+    }
+}
+
+tuple_impl!(I, 0 N0);
+tuple_impl!(II, 0 N0, 1 N1);
+tuple_impl!(III, 0 N0, 1 N1, 2 N2);
+tuple_impl!(IV, 0 N0, 1 N1, 2 N2, 3 N3);
+tuple_impl!(V, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4);
+tuple_impl!(VI, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5);
+tuple_impl!(VII, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6);
+tuple_impl!(VIII, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7);
+tuple_impl!(IX, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8);
+tuple_impl!(X, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9);
+tuple_impl!(XI, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10);
+tuple_impl!(XII, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11);
+tuple_impl!(XIII, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12);
+tuple_impl!(XIV, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13);
+tuple_impl!(XV, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14);
+tuple_impl!(XVI, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15);
+tuple_impl!(XVII, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16);
+tuple_impl!(XVIII, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17);
+tuple_impl!(XIX, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18);
+tuple_impl!(XX, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19);
+tuple_impl!(XXI, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19, 20 N20);
+tuple_impl!(XXII, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19, 20 N20, 21 N21);
+tuple_impl!(XXIII, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19, 20 N20, 21 N21, 22 N22);
+tuple_impl!(XXIV, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19, 20 N20, 21 N21, 22 N22, 23 N23);
+tuple_impl!(XXV, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19, 20 N20, 21 N21, 22 N22, 23 N23, 24 N24);
+
 #[cfg(test)]
 mod tests {
     use crate::{
