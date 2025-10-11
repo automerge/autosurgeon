@@ -86,7 +86,7 @@ impl Variant<'_> {
                     quote! {
                         struct ___EnumNewtypeVisitor<'a>(&'a #ty);
                         impl<'a> ::autosurgeon::Reconcile for ___EnumNewtypeVisitor<'a> {
-                            type Key<'k> = #reconcile_with::Key<'a>;
+                            type Key<'k> = #reconcile_with::Key<'k>;
                             fn reconcile<R: ::autosurgeon::Reconciler>(
                                 &self,
                                 reconciler: R,
