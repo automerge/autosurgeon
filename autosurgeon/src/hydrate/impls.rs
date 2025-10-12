@@ -172,8 +172,6 @@ tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn hydrate_tuple_2_round_trip() {
         let mut doc = automerge::AutoCommit::new();

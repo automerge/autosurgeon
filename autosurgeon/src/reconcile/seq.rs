@@ -52,6 +52,36 @@ impl<'a: 'b, 'b, T: Reconcile> PartialEq<OldElem<LoadKey<T::Key<'b>>>> for NewEl
     }
 }
 
+/*
+struct NewElemSimple<K> {
+    key: K,
+    index: usize,
+}
+
+// `similar::algorithms::lcs` requires that the new sequence elements implement `PartialEqual` with
+// the old elements. By implementing this in terms of the key on the old and new elements we can
+// get `similar` to do what we want
+impl<'a: 'b, 'b, K> PartialEq<OldElem<LoadKey<K>>> for NewElemSimple<LoadKey<K>>
+where
+    K: PartialEq,
+{
+    fn eq(&self, other: &OldElem<LoadKey<K>>) -> bool {
+        match (&self.key, &other.key) {
+            // Both elements had a key, just compare the keys
+            (LoadKey::Found(k1), LoadKey::Found(k2)) => k1 == k2,
+
+            // One of the elements had a key, but the other didn't, they are not eqeual
+            (LoadKey::Found(_), _) => false,
+            (_, LoadKey::Found(_)) => false,
+
+            // Neither element had a key, in this case we want to set both of them and diff
+            // structurally
+            (_, _) => self.index == other.index,
+        }
+    }
+}
+*/
+
 struct Hook<'a, T, S> {
     idx: usize,
     seq: &'a mut S,
@@ -140,35 +170,90 @@ where
 }
 
 macro_rules! tuple_impl {
-    ($hook_ar:ident, $($idx:tt $ty:tt),+) => {
-        pastey::paste! {
-            impl<$($ty,)+> Reconcile for ($($ty,)+)
-                where $($ty: Reconcile,)+ {
-                type Key<'a> = NoKey;
+    ($hook_ar:ident $(, $idx:tt $ty:tt)*) => {
+        // we assume that it starts at N1 and use N0 directly
+        impl<'k, N0, $($ty,)*> Reconcile for (N0, $($ty,)*)
+        where
+            N0: Reconcile,
+            // we force all the remainig types to have the same key
+            $($ty: Reconcile<Key<'k> = <N0 as Reconcile>::Key<'k>>,)*
+        {
+            // constrain the key to that of N0
+            type Key<'a> = <N0 as Reconcile>::Key<'a>;
 
-                fn reconcile<R: Reconciler>(&self, mut reconciler: R) -> Result<(), R::Error>
-                {
-                    let mut seq = reconciler.seq()?;
-                    let old_len = seq.len()?;
-                    let arity = 0;
-                    $(
-                        let arity = arity.max($idx);
-                    )+
-                    for ii in (arity + 1)..old_len {
-                        seq.delete(ii)?;
-                    }
-                    $(
-                        if $idx < old_len {
-                            seq.set($idx, &self.$idx)?;
-                        } else {
-                            seq.insert($idx, &self.$idx)?;
-                        }
-                    )+
-
-                    Ok(())
+            fn reconcile<R: Reconciler>(&self, mut reconciler: R) -> Result<(), R::Error>
+            {
+                let mut seq = reconciler.seq()?;
+                let old_len = seq.len()?;
+                let arity = 0;
+                $(
+                    let arity = arity.max($idx);
+                )*
+                for ii in (arity + 1)..old_len {
+                    seq.delete(ii)?;
                 }
+                if 0 < old_len {
+                    seq.set(0, &self.0)?;
+                } else {
+                    seq.insert(0, &self.0)?;
+                }
+                $(
+                    if $idx < old_len {
+                        seq.set($idx, &self.$idx)?;
+                    } else {
+                        seq.insert($idx, &self.$idx)?;
+                    }
+                )*
+
+                /*
+                let mut seq = reconciler.seq()?;
+
+                let old_len = seq.len()?;
+                let arity = 0;
+                $(
+                    let arity = arity.max($idx);
+                )*
+                let old_keys = (0..old_len).try_fold::<_, _, Result<_, R::Error>>(
+                    Vec::with_capacity(old_len),
+                    |mut items, ii| {
+                        $(
+                            if ii == 0 {
+                                items.push(OldElem {
+                                    key: seq.hydrate_item_key::<N0>(0)?,
+                                    index: 0,
+                                });
+                            }
+                            if ii == $idx {
+                                items.push(OldElem {
+                                    key: seq.hydrate_item_key::<$ty>($idx)?,
+                                    index: $idx,
+                                });
+                            }
+                        )*;
+                        Ok(items)
+                    },
+                )?;
+
+                let new = vec![
+                    NewElemSimple { key: self.0.key(), index: 0 },
+                    $(NewElemSimple { key: self.$idx.key(), index: $idx },)*
+                ];
+
+
+                let mut hook = pastey::paste! {[<$hook_ar  Hook>]} {
+                    idx: 0,
+                    seq: &mut seq,
+                    tuple: self,
+                };
+
+                similar::algorithms::lcs::diff(&mut hook, &old_keys, 0..old_len, &new, 0..arity)?;
+                */
+                Ok(())
             }
-            /*
+        }
+
+        /*
+        pastey::paste! {
             struct [<$hook_ar  Hook>]<'a, $($ty, )+ S> {
                 idx: usize,
                 seq: &'a mut S,
@@ -212,10 +297,6 @@ macro_rules! tuple_impl {
                     new_index: usize,
                     new_len: usize,
                 ) -> Result<(), Self::Error> {
-                    for elem in &self.items[new_index..(new_index + new_len)] {
-                        self.seq.insert(self.idx, elem)?;
-                        self.idx += 1;
-                    }
                     $(if $idx >= new_index && $idx < (new_index + new_len){
                         self.seq.insert(self.idx, &self.tuple.$idx)?;
                         self.idx += 1;
@@ -223,37 +304,36 @@ macro_rules! tuple_impl {
                     Ok(())
                 }
             }
-            */
         }
-
+        */
     }
 }
 
-tuple_impl!(I, 0 N0);
-tuple_impl!(II, 0 N0, 1 N1);
-tuple_impl!(III, 0 N0, 1 N1, 2 N2);
-tuple_impl!(IV, 0 N0, 1 N1, 2 N2, 3 N3);
-tuple_impl!(V, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4);
-tuple_impl!(VI, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5);
-tuple_impl!(VII, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6);
-tuple_impl!(VIII, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7);
-tuple_impl!(IX, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8);
-tuple_impl!(X, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9);
-tuple_impl!(XI, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10);
-tuple_impl!(XII, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11);
-tuple_impl!(XIII, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12);
-tuple_impl!(XIV, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13);
-tuple_impl!(XV, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14);
-tuple_impl!(XVI, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15);
-tuple_impl!(XVII, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16);
-tuple_impl!(XVIII, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17);
-tuple_impl!(XIX, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18);
-tuple_impl!(XX, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19);
-tuple_impl!(XXI, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19, 20 N20);
-tuple_impl!(XXII, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19, 20 N20, 21 N21);
-tuple_impl!(XXIII, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19, 20 N20, 21 N21, 22 N22);
-tuple_impl!(XXIV, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19, 20 N20, 21 N21, 22 N22, 23 N23);
-tuple_impl!(XXV, 0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19, 20 N20, 21 N21, 22 N22, 23 N23, 24 N24);
+tuple_impl!(I);
+tuple_impl!(II, 1 N1);
+tuple_impl!(III, 1 N1, 2 N2);
+tuple_impl!(IV, 1 N1, 2 N2, 3 N3);
+tuple_impl!(V, 1 N1, 2 N2, 3 N3, 4 N4);
+tuple_impl!(VI, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5);
+tuple_impl!(VII, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6);
+tuple_impl!(VIII, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7);
+tuple_impl!(IX, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8);
+tuple_impl!(X, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9);
+tuple_impl!(XI, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10);
+tuple_impl!(XII, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11);
+tuple_impl!(XIII, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12);
+tuple_impl!(XIV, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13);
+tuple_impl!(XV, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14);
+tuple_impl!(XVI, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15);
+tuple_impl!(XVII, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16);
+tuple_impl!(XVIII, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17);
+tuple_impl!(XIX, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18);
+tuple_impl!(XX, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19);
+tuple_impl!(XXI, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19, 20 N20);
+tuple_impl!(XXII, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19, 20 N20, 21 N21);
+tuple_impl!(XXIII, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19, 20 N20, 21 N21, 22 N22);
+tuple_impl!(XXIV, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19, 20 N20, 21 N21, 22 N22, 23 N23);
+tuple_impl!(XXV, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19, 20 N20, 21 N21, 22 N22, 23 N23, 24 N24);
 
 #[cfg(test)]
 mod tests {
