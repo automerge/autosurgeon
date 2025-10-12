@@ -1,6 +1,8 @@
 [package]
 name = "autosurgeon"
 version = "0.9.0"
+authors = { workspace = true }
+edition = { workspace = true }
 rust-version = { workspace = true }
 description = "A library for working with data in automerge documents"
 readme = "../README.md"
