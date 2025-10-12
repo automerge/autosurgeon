@@ -3,7 +3,6 @@ name = "autosurgeon-derive"
 version = "0.9.0"
 authors = { workspace = true }
 edition = { workspace = true }
-edition = "2021" 
 rust-version = { workspace = true }
 description = "Procedural macros for implementing autosurgeon"
 repository = { workspace = true }
