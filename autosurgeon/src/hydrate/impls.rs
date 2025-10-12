@@ -120,42 +120,6 @@ impl<T: Hydrate> Hydrate for Box<T> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn hydrate_tuple_2_round_trip() {
-        let mut doc = automerge::AutoCommit::new();
-        // Write a 2-tuple via Reconcile from utils to a list
-        crate::reconcile::reconcile_prop(&mut doc, automerge::ROOT, "t", &(1u64, 2u64)).unwrap();
-        let hydrated: (u64, u64) =
-            crate::hydrate::hydrate_prop(&doc, automerge::ROOT, "t").unwrap();
-        assert_eq!(hydrated, (1, 2));
-    }
-
-    #[test]
-    fn hydrate_tuple_3_round_trip() {
-        let mut doc = automerge::AutoCommit::new();
-        crate::reconcile::reconcile_prop(&mut doc, automerge::ROOT, "t", &(1u64, 2u64, 3u64))
-            .unwrap();
-        let hydrated: (u64, u64, u64) =
-            crate::hydrate::hydrate_prop(&doc, automerge::ROOT, "t").unwrap();
-        assert_eq!(hydrated, (1, 2, 3));
-    }
-
-    #[test]
-    fn hydrate_tuple_wrong_len_errors() {
-        let mut doc = automerge::AutoCommit::new();
-        crate::reconcile::reconcile_prop(&mut doc, automerge::ROOT, "t", &(1u64, 2u64)).unwrap();
-        let err =
-            crate::hydrate::hydrate_prop::<_, (u64, u64, u64), _, _>(&doc, automerge::ROOT, "t")
-                .unwrap_err();
-        let msg = format!("{}", err);
-        assert!(msg.contains("tuple arity mismatch"));
-    }
-}
-
 macro_rules! tuple_impl {
     ($($idx:tt $ty:tt),+) => {
         impl<$($ty,)+> Hydrate for ($($ty,)+)
@@ -205,3 +169,39 @@ tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 
 tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19, 20 N20, 21 N21);
 tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19, 20 N20, 21 N21, 22 N22);
 tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19, 20 N20, 21 N21, 22 N22, 23 N23);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hydrate_tuple_2_round_trip() {
+        let mut doc = automerge::AutoCommit::new();
+        // Write a 2-tuple via Reconcile from utils to a list
+        crate::reconcile::reconcile_prop(&mut doc, automerge::ROOT, "t", &(1u64, 2u64)).unwrap();
+        let hydrated: (u64, u64) =
+            crate::hydrate::hydrate_prop(&doc, automerge::ROOT, "t").unwrap();
+        assert_eq!(hydrated, (1, 2));
+    }
+
+    #[test]
+    fn hydrate_tuple_3_round_trip() {
+        let mut doc = automerge::AutoCommit::new();
+        crate::reconcile::reconcile_prop(&mut doc, automerge::ROOT, "t", &(1u64, 2u64, 3u64))
+            .unwrap();
+        let hydrated: (u64, u64, u64) =
+            crate::hydrate::hydrate_prop(&doc, automerge::ROOT, "t").unwrap();
+        assert_eq!(hydrated, (1, 2, 3));
+    }
+
+    #[test]
+    fn hydrate_tuple_wrong_len_errors() {
+        let mut doc = automerge::AutoCommit::new();
+        crate::reconcile::reconcile_prop(&mut doc, automerge::ROOT, "t", &(1u64, 2u64)).unwrap();
+        let err =
+            crate::hydrate::hydrate_prop::<_, (u64, u64, u64), _, _>(&doc, automerge::ROOT, "t")
+                .unwrap_err();
+        let msg = format!("{}", err);
+        assert!(msg.contains("tuple arity mismatch"));
+    }
+}
