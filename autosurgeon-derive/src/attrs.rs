@@ -269,7 +269,12 @@ impl EnumNewtypeAttrs {
     pub(crate) fn from_field(field: &syn::Field) -> Result<Option<Self>, syn::parse::Error> {
         let mut result = None;
         for attr in &field.attrs {
-            if attr.path().is_ident("autosurgeon") && result.is_some() {
+            // Only consider attributes belonging to `autosurgeon`; ignore others like `#[from]`,
+            // `#[serde(...)]`, etc.
+            if !attr.path().is_ident("autosurgeon") {
+                continue;
+            }
+            if result.is_some() {
                 return Err(syn::parse::Error::new(
                     attr.span(),
                     "duplicate autosurgeon attribute",
