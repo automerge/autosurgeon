@@ -176,7 +176,7 @@ mod tests {
     fn hydrate_tuple_2_round_trip() {
         let mut doc = automerge::AutoCommit::new();
         // Write a 2-tuple via Reconcile from utils to a list
-        crate::reconcile::reconcile_prop(&mut doc, automerge::ROOT, "t", &(1u64, 2u64)).unwrap();
+        crate::reconcile::reconcile_prop(&mut doc, automerge::ROOT, "t", (1u64, 2u64)).unwrap();
         let hydrated: (u64, u64) =
             crate::hydrate::hydrate_prop(&doc, automerge::ROOT, "t").unwrap();
         assert_eq!(hydrated, (1, 2));
@@ -185,7 +185,7 @@ mod tests {
     #[test]
     fn hydrate_tuple_3_round_trip() {
         let mut doc = automerge::AutoCommit::new();
-        crate::reconcile::reconcile_prop(&mut doc, automerge::ROOT, "t", &(1u64, 2u64, 3u64))
+        crate::reconcile::reconcile_prop(&mut doc, automerge::ROOT, "t", (1u64, 2u64, 3u64))
             .unwrap();
         let hydrated: (u64, u64, u64) =
             crate::hydrate::hydrate_prop(&doc, automerge::ROOT, "t").unwrap();
@@ -195,7 +195,7 @@ mod tests {
     #[test]
     fn hydrate_tuple_wrong_len_errors() {
         let mut doc = automerge::AutoCommit::new();
-        crate::reconcile::reconcile_prop(&mut doc, automerge::ROOT, "t", &(1u64, 2u64)).unwrap();
+        crate::reconcile::reconcile_prop(&mut doc, automerge::ROOT, "t", (1u64, 2u64)).unwrap();
         let err =
             crate::hydrate::hydrate_prop::<_, (u64, u64, u64), _, _>(&doc, automerge::ROOT, "t")
                 .unwrap_err();

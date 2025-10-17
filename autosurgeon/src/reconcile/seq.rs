@@ -461,9 +461,9 @@ mod tests {
     #[test]
     fn reconcile_tuple_2_round_trip() {
         let mut doc = automerge::AutoCommit::new();
-        crate::reconcile_prop(&mut doc, automerge::ROOT, "t", &(1u64, 2u64)).unwrap();
+        crate::reconcile_prop(&mut doc, automerge::ROOT, "t", (1u64, 2u64)).unwrap();
         // Update tuple
-        crate::reconcile_prop(&mut doc, automerge::ROOT, "t", &(10u64, 20u64)).unwrap();
+        crate::reconcile_prop(&mut doc, automerge::ROOT, "t", (10u64, 20u64)).unwrap();
         use automerge_test::{assert_doc, list, map};
         assert_doc!(
             doc.document(),
@@ -474,9 +474,9 @@ mod tests {
     #[test]
     fn reconcile_tuple_3_insert_delete() {
         let mut doc = automerge::AutoCommit::new();
-        crate::reconcile_prop(&mut doc, automerge::ROOT, "t", &(1u64, 2u64, 3u64)).unwrap();
+        crate::reconcile_prop(&mut doc, automerge::ROOT, "t", (1u64, 2u64, 3u64)).unwrap();
         // Shorten to 2
-        crate::reconcile_prop(&mut doc, automerge::ROOT, "t", &(7u64, 8u64)).unwrap();
+        crate::reconcile_prop(&mut doc, automerge::ROOT, "t", (7u64, 8u64)).unwrap();
         use automerge_test::{assert_doc, list, map};
         assert_doc!(
             doc.document(),
