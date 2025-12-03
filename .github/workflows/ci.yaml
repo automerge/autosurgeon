@@ -15,7 +15,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.86
+          toolchain: 1.91
           default: true
           components: rustfmt
       - uses: Swatinem/rust-cache@v2
@@ -29,7 +29,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.86
+          toolchain: 1.91
           default: true
           components: clippy
       - uses: Swatinem/rust-cache@v2
@@ -55,7 +55,7 @@ jobs:
     strategy:
       matrix:
         toolchain:
-          - 1.86
+          - 1.91
           - nightly
     continue-on-error: ${{ matrix.toolchain == 'nightly' }}
     steps:
@@ -76,7 +76,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.86
+          toolchain: 1.91
           default: true
       - uses: Swatinem/rust-cache@v2
       - run: ./scripts/ci/build-test
@@ -89,7 +89,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.86
+          toolchain: 1.91
           default: true
       - uses: Swatinem/rust-cache@v2
       - run: ./scripts/ci/build-test
