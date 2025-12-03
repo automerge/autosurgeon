@@ -153,7 +153,11 @@ impl Field for NamedField<'_> {
     }
 
     fn as_prop(&self) -> TokenStream {
-        let propname = &self.name.to_string();
+        let propname = self
+            .attrs
+            .rename()
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| self.name.to_string());
         quote!(#propname)
     }
 

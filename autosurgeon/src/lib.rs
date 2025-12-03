@@ -447,6 +447,101 @@
 //! assert_eq!(contact.visibility, Visibility::Public);
 //!
 //! ```
+//!
+//! ### Renaming fields and variants with `rename=`
+//!
+//! By default, struct fields and enum variants are serialized using their Rust identifier names.
+//! The `rename` attribute allows you to specify a custom name for the serialized form. This is
+//! useful when:
+//!
+//! - You need to use names that aren't valid Rust identifiers (e.g., names with hyphens)
+//! - You want to maintain compatibility with existing data that uses different naming conventions
+//! - You're interoperating with other systems that expect specific field names
+//!
+//! #### Renaming struct fields
+//!
+//! ```rust
+//! # use autosurgeon::{Reconcile, Hydrate, reconcile, hydrate};
+//! #[derive(Reconcile, Hydrate, Debug, PartialEq)]
+//! struct Config {
+//!     #[autosurgeon(rename = "api-key")]
+//!     api_key: String,
+//!
+//!     #[autosurgeon(rename = "max-retries")]
+//!     max_retries: u64,
+//! }
+//!
+//! let config = Config {
+//!     api_key: "secret".to_string(),
+//!     max_retries: 3,
+//! };
+//!
+//! let mut doc = automerge::AutoCommit::new();
+//! reconcile(&mut doc, &config).unwrap();
+//!
+//! // The document now contains keys "api-key" and "max-retries"
+//! // instead of "api_key" and "max_retries"
+//!
+//! let hydrated: Config = hydrate(&doc).unwrap();
+//! assert_eq!(config, hydrated);
+//! ```
+//!
+//! #### Renaming enum variants
+//!
+//! The `rename` attribute can also be applied to enum variants:
+//!
+//! ```rust
+//! # use autosurgeon::{Reconcile, Hydrate, reconcile, hydrate};
+//! # use autosurgeon::reconcile::reconcile_prop;
+//! #[derive(Reconcile, Hydrate, Debug, PartialEq)]
+//! enum Status {
+//!     #[autosurgeon(rename = "in-progress")]
+//!     InProgress,
+//!
+//!     #[autosurgeon(rename = "done")]
+//!     Completed,
+//!
+//!     Active,  // Not renamed, uses "Active"
+//! }
+//!
+//! let mut doc = automerge::AutoCommit::new();
+//! reconcile_prop(&mut doc, automerge::ROOT, "status", Status::InProgress).unwrap();
+//!
+//! // The document contains "in-progress" as the status value
+//!
+//! let status: Status = autosurgeon::hydrate_prop(&doc, automerge::ROOT, "status").unwrap();
+//! assert_eq!(status, Status::InProgress);
+//! ```
+//!
+//! #### Combining field and variant renames
+//!
+//! You can combine field renames within enum variants:
+//!
+//! ```rust
+//! # use autosurgeon::{Reconcile, Hydrate, reconcile, hydrate};
+//! #[derive(Reconcile, Hydrate, Debug, PartialEq)]
+//! enum Event {
+//!     #[autosurgeon(rename = "user-login")]
+//!     UserLogin {
+//!         #[autosurgeon(rename = "user-id")]
+//!         user_id: String,
+//!         timestamp: u64,
+//!     },
+//! }
+//!
+//! let event = Event::UserLogin {
+//!     user_id: "user123".to_string(),
+//!     timestamp: 1234567890,
+//! };
+//!
+//! let mut doc = automerge::AutoCommit::new();
+//! reconcile(&mut doc, &event).unwrap();
+//!
+//! // The document contains {"user-login": {"user-id": "user123", "timestamp": 1234567890}}
+//!
+//! let hydrated: Event = hydrate(&doc).unwrap();
+//! assert_eq!(event, hydrated);
+//! ```
 
 #[doc = include_str!("../../README.md")]
 #[cfg(doctest)]

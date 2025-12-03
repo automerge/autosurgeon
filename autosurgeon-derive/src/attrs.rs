@@ -187,6 +187,7 @@ pub(crate) struct Field {
     reconcile_with: Option<ReconcileWith>,
     hydrate_with: Option<HydrateWith>,
     missing: Option<syn::Path>,
+    rename: Option<String>,
 }
 
 impl Field {
@@ -205,6 +206,7 @@ impl Field {
                     reconcile_with: ReconcileWith::from_attrs(&attrs)?,
                     hydrate_with: HydrateWith::from_attrs(&attrs)?,
                     missing: attrs.missing.clone(),
+                    rename: attrs.rename.clone(),
                 });
             }
         }
@@ -221,6 +223,10 @@ impl Field {
 
     pub(crate) fn missing(&self) -> Option<&syn::Path> {
         self.missing.as_ref()
+    }
+
+    pub(crate) fn rename(&self) -> Option<&str> {
+        self.rename.as_deref()
     }
 }
 
@@ -297,6 +303,42 @@ impl EnumNewtypeAttrs {
     }
 }
 
+/// Attributes that can be applied to enum variants
+#[derive(PartialEq, Eq, Default)]
+pub(crate) struct VariantAttrs {
+    /// Rename the variant in the serialized form
+    rename: Option<String>,
+}
+
+impl VariantAttrs {
+    pub(crate) fn from_variant(variant: &syn::Variant) -> Result<Self, syn::parse::Error> {
+        let mut result = VariantAttrs::default();
+        for attr in &variant.attrs {
+            if attr.path().is_ident("autosurgeon") {
+                let attrs = AutosurgeonAttrs::from_attr(attr)?;
+                // Only rename is valid at the variant level
+                if attrs.reconcile.is_some()
+                    || attrs.reconcile_with.is_some()
+                    || attrs.with.is_some()
+                    || attrs.hydrate.is_some()
+                    || attrs.missing.is_some()
+                {
+                    return Err(syn::parse::Error::new(
+                        attr.span(),
+                        "only 'rename' attribute is allowed on enum variants",
+                    ));
+                }
+                result.rename = attrs.rename;
+            }
+        }
+        Ok(result)
+    }
+
+    pub(crate) fn rename(&self) -> Option<&str> {
+        self.rename.as_deref()
+    }
+}
+
 struct AutosurgeonAttrs {
     span: proc_macro2::Span,
     reconcile: Option<syn::Path>,
@@ -304,6 +346,7 @@ struct AutosurgeonAttrs {
     with: Option<syn::Path>,
     hydrate: Option<syn::Path>,
     missing: Option<syn::Path>,
+    rename: Option<String>,
 }
 
 impl AutosurgeonAttrs {
@@ -315,6 +358,7 @@ impl AutosurgeonAttrs {
             with: None,
             hydrate: None,
             missing: None,
+            rename: None,
         };
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("reconcile") {
@@ -337,6 +381,10 @@ impl AutosurgeonAttrs {
                 let value = meta.value()?;
                 let s: syn::LitStr = value.parse()?;
                 result.missing = Some(s.parse()?);
+            } else if meta.path.is_ident("rename") {
+                let value = meta.value()?;
+                let s: syn::LitStr = value.parse()?;
+                result.rename = Some(s.value());
             } else {
                 return Err(meta.error("unknown attribute"));
             }
