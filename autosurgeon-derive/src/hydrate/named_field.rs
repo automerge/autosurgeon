@@ -25,7 +25,11 @@ impl<'a> NamedField<'a> {
 
     pub(crate) fn hydrator(&self, obj_ident: &syn::Ident) -> TokenStream {
         let name = &self.name;
-        let string_name = format_ident!("{}", name).to_string();
+        let string_name = self
+            .attrs
+            .rename()
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| format_ident!("{}", name).to_string());
         if let Some(hydrate_with) = self.attrs.hydrate_with().map(|h| h.hydrate_with()) {
             let span = self.field.span();
             let hydrate_with = if let Some(missing_fn) = self.attrs.missing() {

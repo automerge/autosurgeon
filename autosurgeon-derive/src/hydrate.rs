@@ -113,7 +113,7 @@ fn on_enum(
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-    let unit_fields = EnumUnitFields::new(name, enumstruct);
+    let unit_fields = EnumUnitFields::new(name, enumstruct)?;
     let named_fields = EnumAsMapFields::new(name, enumstruct)?;
 
     let hydrate_string = unit_fields.hydrate_string();
@@ -130,37 +130,54 @@ fn on_enum(
     })
 }
 
+struct UnitVariant<'a> {
+    ident: &'a syn::Ident,
+    effective_name: String,
+}
+
 struct EnumUnitFields<'a> {
     ty: &'a syn::Ident,
-    fields: Vec<&'a syn::Ident>,
+    fields: Vec<UnitVariant<'a>>,
 }
 
 impl<'a> EnumUnitFields<'a> {
-    fn new(ty: &'a syn::Ident, data: &'a syn::DataEnum) -> Self {
-        Self {
-            ty,
-            fields: data
-                .variants
-                .iter()
-                .filter_map(|f| match f.fields {
-                    Fields::Unit => Some(&f.ident),
-                    _ => None,
-                })
-                .collect(),
-        }
+    fn new(ty: &'a syn::Ident, data: &'a syn::DataEnum) -> Result<Self, error::DeriveError> {
+        let fields = data
+            .variants
+            .iter()
+            .filter_map(|f| match f.fields {
+                Fields::Unit => {
+                    let variant_attrs = match attrs::VariantAttrs::from_variant(f) {
+                        Ok(attrs) => attrs,
+                        Err(e) => return Some(Err(error::DeriveError::InvalidFieldAttrs(e))),
+                    };
+                    let effective_name = variant_attrs
+                        .rename()
+                        .map(|s| s.to_string())
+                        .unwrap_or_else(|| f.ident.to_string());
+                    Some(Ok(UnitVariant {
+                        ident: &f.ident,
+                        effective_name,
+                    }))
+                }
+                _ => None,
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Self { ty, fields })
     }
 
     fn branches(&self) -> TokenStream {
         let ty = self.ty;
-        let branches = self.fields.iter().map(|i| {
-            let branch_name = i.to_string();
-            quote!(#branch_name => ::std::result::Result::Ok(#ty::#i))
+        let branches = self.fields.iter().map(|v| {
+            let branch_name = &v.effective_name;
+            let ident = v.ident;
+            quote!(#branch_name => ::std::result::Result::Ok(#ty::#ident))
         });
         quote!(#(#branches),*)
     }
 
     fn expected(&self) -> TokenStream {
-        let names = self.fields.iter().map(|f| format!("{}", f));
+        let names = self.fields.iter().map(|v| &v.effective_name);
         let expected = quote!(One of (#(#names),*)).to_string();
         quote!(#expected)
     }

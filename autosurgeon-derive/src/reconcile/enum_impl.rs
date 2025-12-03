@@ -15,30 +15,40 @@ use super::{error::DeriveError, ReconcileImpl};
 /// Represents a variant of an enum.
 enum Variant<'a> {
     /// A fieldless variant.
-    Unit { name: &'a syn::Ident },
+    Unit {
+        name: &'a syn::Ident,
+        variant_attrs: attrs::VariantAttrs,
+    },
     /// A variant with one unnamed field.
     NewType {
         name: &'a syn::Ident,
         inner_ty: &'a syn::Type,
         attrs: attrs::EnumNewtypeAttrs,
+        variant_attrs: attrs::VariantAttrs,
     },
     /// A struct variant with named fields.
     Named {
         name: &'a syn::Ident,
         fields: &'a syn::FieldsNamed,
+        variant_attrs: attrs::VariantAttrs,
     },
     /// A tuple variant with unnamed fields.
     Unnamed {
         name: &'a syn::Ident,
         fields: &'a syn::FieldsUnnamed,
+        variant_attrs: attrs::VariantAttrs,
     },
 }
 
 impl<'a> TryFrom<&'a syn::Variant> for Variant<'a> {
     type Error = DeriveError;
     fn try_from(v: &'a syn::Variant) -> Result<Self, DeriveError> {
+        let variant_attrs = attrs::VariantAttrs::from_variant(v)?;
         match &v.fields {
-            syn::Fields::Unit => Ok(Self::Unit { name: &v.ident }),
+            syn::Fields::Unit => Ok(Self::Unit {
+                name: &v.ident,
+                variant_attrs,
+            }),
             syn::Fields::Unnamed(fields) => {
                 if fields.unnamed.len() == 1 {
                     let field = fields.unnamed.first().unwrap();
@@ -46,41 +56,79 @@ impl<'a> TryFrom<&'a syn::Variant> for Variant<'a> {
                         name: &v.ident,
                         inner_ty: &fields.unnamed.first().unwrap().ty,
                         attrs: attrs::EnumNewtypeAttrs::from_field(field)?.unwrap_or_default(),
+                        variant_attrs,
                     })
                 } else {
                     Ok(Self::Unnamed {
                         name: &v.ident,
                         fields,
+                        variant_attrs,
                     })
                 }
             }
             syn::Fields::Named(fields) => Ok(Self::Named {
                 name: &v.ident,
                 fields,
+                variant_attrs,
             }),
         }
     }
 }
 
 impl Variant<'_> {
+    /// Returns the effective name string (renamed value if present, otherwise the variant name)
+    fn effective_name_string(&self) -> String {
+        match self {
+            Self::Unit {
+                name,
+                variant_attrs,
+            } => variant_attrs
+                .rename()
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| name.to_string()),
+            Self::NewType {
+                name,
+                variant_attrs,
+                ..
+            } => variant_attrs
+                .rename()
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| name.to_string()),
+            Self::Named {
+                name,
+                variant_attrs,
+                ..
+            } => variant_attrs
+                .rename()
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| name.to_string()),
+            Self::Unnamed {
+                name,
+                variant_attrs,
+                ..
+            } => variant_attrs
+                .rename()
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| name.to_string()),
+        }
+    }
+
     fn match_arm(
         &self,
         reconciler_ident: &syn::Ident,
         generics: &syn::Generics,
     ) -> Result<proc_macro2::TokenStream, DeriveError> {
+        let name_string = self.effective_name_string();
         match self {
-            Self::Unit { name } => {
-                let name_string = name.to_string();
-                Ok(quote! {
-                    Self::#name => ::autosurgeon::Reconciler::str(&mut reconciler, #name_string)
-                })
-            }
+            Self::Unit { name, .. } => Ok(quote! {
+                Self::#name => ::autosurgeon::Reconciler::str(&mut reconciler, #name_string)
+            }),
             Self::NewType {
                 name,
                 attrs,
                 inner_ty,
+                ..
             } => {
-                let name_string = name.to_string();
                 let ty = inner_ty;
                 let reconciler = attrs.reconcile_with().map(|reconcile_with| {
                     quote! {
@@ -127,11 +175,11 @@ impl Variant<'_> {
                     }
                 })
             }
-            Self::Unnamed { name, fields } => {
-                enum_with_fields_variant(reconciler_ident, generics, name, *fields)
+            Self::Unnamed { name, fields, .. } => {
+                enum_with_fields_variant(reconciler_ident, generics, name, &name_string, *fields)
             }
-            Self::Named { name, fields } => {
-                enum_with_fields_variant(reconciler_ident, generics, name, *fields)
+            Self::Named { name, fields, .. } => {
+                enum_with_fields_variant(reconciler_ident, generics, name, &name_string, *fields)
             }
         }
     }
@@ -249,6 +297,7 @@ impl EnumKeyInnerType<'_> {
         &self,
         key_type_name: &syn::Ident,
         variant_name: &syn::Ident,
+        effective_name: &str,
         obj_id_ident: &syn::Ident,
     ) -> TokenStream {
         match self {
@@ -256,7 +305,7 @@ impl EnumKeyInnerType<'_> {
                 ::std::result::Result::Ok(::autosurgeon::reconcile::LoadKey::Found(#variant_name)),
             },
             Self::NewType(t) => {
-                let prop = variant_name.to_string();
+                let prop = effective_name;
                 if let Some(reconcile_with) = t.attrs.reconcile_with() {
                     quote! {
                         std::result::Result::Ok(
@@ -285,7 +334,7 @@ impl EnumKeyInnerType<'_> {
                 }
             }
             Self::Struct(keyfield) => {
-                let prop = variant_name.to_string();
+                let prop = effective_name;
                 let key_prop = keyfield.prop();
                 quote! {
                     {
@@ -300,7 +349,7 @@ impl EnumKeyInnerType<'_> {
                 }
             }
             Self::Tuple(keyfield) => {
-                let prop = variant_name.to_string();
+                let prop = effective_name;
                 let key_prop = keyfield.prop();
                 quote! {
                     {
@@ -337,6 +386,8 @@ impl EnumKeyInnerType<'_> {
 
 struct EnumKeyVariant<'a> {
     name: &'a syn::Ident,
+    /// The effective name string (renamed if specified, otherwise the variant name)
+    effective_name: String,
     ty: EnumKeyInnerType<'a>,
 }
 
@@ -349,8 +400,10 @@ impl EnumKeyVariant<'_> {
         if EnumKeyInnerType::Unit == self.ty {
             None
         } else {
-            let name_str = self.name.to_string();
-            let hydrate = self.ty.hydrate_key(outer_name, self.name, obj_id_ident);
+            let name_str = &self.effective_name;
+            let hydrate =
+                self.ty
+                    .hydrate_key(outer_name, self.name, &self.effective_name, obj_id_ident);
             Some(quote! {
                 #name_str => #hydrate
             })
@@ -360,7 +413,7 @@ impl EnumKeyVariant<'_> {
     fn unit_match_arm(&self, outer_name: &syn::Ident) -> Option<TokenStream> {
         if EnumKeyInnerType::Unit == self.ty {
             let name = &self.name;
-            let name_str = self.name.to_string();
+            let name_str = &self.effective_name;
             let variant_name = quote!(#outer_name::#name);
             Some(quote! {
                 #name_str => ::std::result::Result::Ok(
@@ -404,9 +457,11 @@ impl<'a> EnumKey<'a> {
         let enum_variants = variants.try_fold::<_, _, Result<_, DeriveError>>(
             Vec::new(),
             move |mut variants, variant| {
+                let effective_name = variant.effective_name_string();
                 let next = match variant {
-                    Variant::Unit { name } => EnumKeyVariant {
+                    Variant::Unit { name, .. } => EnumKeyVariant {
                         name,
+                        effective_name,
                         ty: EnumKeyInnerType::Unit,
                     },
                     Variant::NewType {
@@ -416,31 +471,36 @@ impl<'a> EnumKey<'a> {
                         ..
                     } => EnumKeyVariant {
                         name,
+                        effective_name,
                         ty: EnumKeyInnerType::NewType(NewTypeKey {
                             ty: inner_ty,
                             attrs,
                         }),
                     },
-                    Variant::Named { name, fields } => {
+                    Variant::Named { name, fields, .. } => {
                         match NamedFields::try_from(*fields)?.key()? {
                             Some(key) => EnumKeyVariant {
                                 name,
+                                effective_name,
                                 ty: EnumKeyInnerType::Struct(key.into_owned()),
                             },
                             None => EnumKeyVariant {
                                 name,
+                                effective_name,
                                 ty: EnumKeyInnerType::NoInnerKeyStruct,
                             },
                         }
                     }
-                    Variant::Unnamed { name, fields } => {
+                    Variant::Unnamed { name, fields, .. } => {
                         match UnnamedFields::try_from(*fields)?.key()? {
                             Some(key) => EnumKeyVariant {
                                 name,
+                                effective_name,
                                 ty: EnumKeyInnerType::Tuple(key.into_owned()),
                             },
                             None => EnumKeyVariant {
                                 name,
+                                effective_name,
                                 ty: EnumKeyInnerType::NoInnerKeyTuple,
                             },
                         }
@@ -806,9 +866,9 @@ fn enum_with_fields_variant<F: VariantWithFields>(
     reconciler_ident: &syn::Ident,
     generics: &syn::Generics,
     name: &syn::Ident,
+    variant_name_str: &str,
     variant: F,
 ) -> Result<TokenStream, DeriveError> {
-    let variant_name_str = name.to_string();
     let visitor_name = format_ident!("{}ReconcileVisitor", name);
 
     let fields = variant.fields()?;

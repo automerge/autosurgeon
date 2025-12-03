@@ -1,5 +1,7 @@
 use proc_macro2::{Span, TokenStream};
-use quote::{format_ident, quote};
+use quote::quote;
+
+use crate::attrs;
 
 use super::{
     error::DeriveError, named_field::NamedField, newtype_field::NewtypeField,
@@ -9,14 +11,22 @@ use super::{
 pub(crate) struct Variant<'a> {
     ident: &'a syn::Ident,
     fields: VariantFields<'a>,
+    variant_attrs: attrs::VariantAttrs,
 }
 
 impl<'a> Variant<'a> {
     pub(crate) fn visitor_def(&self, outer_ty: &syn::Ident) -> TokenStream {
-        self.fields.visitor_def(outer_ty, self.ident)
+        let effective_name = self
+            .variant_attrs
+            .rename()
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| self.ident.to_string());
+        self.fields
+            .visitor_def(outer_ty, self.ident, &effective_name)
     }
 
     pub(crate) fn from_variant(variant: &'a syn::Variant) -> Result<Option<Self>, DeriveError> {
+        let variant_attrs = attrs::VariantAttrs::from_variant(variant)?;
         let fields = match &variant.fields {
             syn::Fields::Named(nf) => VariantFields::Named(
                 nf.named
@@ -44,6 +54,7 @@ impl<'a> Variant<'a> {
         Ok(Some(Self {
             ident: &variant.ident,
             fields,
+            variant_attrs,
         }))
     }
 }
@@ -55,11 +66,22 @@ enum VariantFields<'a> {
 }
 
 impl<'a> VariantFields<'a> {
-    fn visitor_def(&self, outer_ty: &syn::Ident, variant_name: &'a syn::Ident) -> TokenStream {
+    fn visitor_def(
+        &self,
+        outer_ty: &syn::Ident,
+        variant_name: &'a syn::Ident,
+        effective_name: &str,
+    ) -> TokenStream {
         match self {
-            Self::Named(fields) => named_field_variant_stanza(outer_ty, variant_name, fields),
-            Self::Unnamed(fields) => unnamed_field_variant_stanza(outer_ty, variant_name, fields),
-            Self::NewType(field) => newtype_field_variant_stanza(outer_ty, variant_name, field),
+            Self::Named(fields) => {
+                named_field_variant_stanza(outer_ty, variant_name, effective_name, fields)
+            }
+            Self::Unnamed(fields) => {
+                unnamed_field_variant_stanza(outer_ty, variant_name, effective_name, fields)
+            }
+            Self::NewType(field) => {
+                newtype_field_variant_stanza(outer_ty, variant_name, effective_name, field)
+            }
         }
     }
 }
@@ -67,18 +89,18 @@ impl<'a> VariantFields<'a> {
 fn newtype_field_variant_stanza(
     outer_ty: &syn::Ident,
     variant_name: &syn::Ident,
+    effective_name: &str,
     field: &NewtypeField,
 ) -> TokenStream {
     let ty = outer_ty;
 
     let name = syn::Ident::new("field_0", proc_macro2::Span::mixed_site());
-    let variant_name_str = format_ident!("{}", variant_name).to_string();
 
-    let hydrator = field.hydrate_into(&name, &variant_name_str);
+    let hydrator = field.hydrate_into(&name, effective_name);
     quote! {
-        if ::autosurgeon::ReadDoc::get(doc, obj, #variant_name_str)?.is_some() {
+        if ::autosurgeon::ReadDoc::get(doc, obj, #effective_name)?.is_some() {
             #hydrator
-            //let #name = ::autosurgeon::hydrate_prop(doc, obj, #variant_name_str)?;
+            //let #name = ::autosurgeon::hydrate_prop(doc, obj, #effective_name)?;
             return ::std::result::Result::Ok(#ty::#variant_name(#name))
         }
     }
@@ -87,11 +109,11 @@ fn newtype_field_variant_stanza(
 fn named_field_variant_stanza(
     outer_ty: &syn::Ident,
     variant_name: &syn::Ident,
+    effective_name: &str,
     fields: &[NamedField<'_>],
 ) -> TokenStream {
     let ty = outer_ty;
 
-    let variant_name_str = variant_name.to_string();
     let obj_ident = syn::Ident::new("id", Span::mixed_site());
     let field_hydrators = fields.iter().map(|f| f.hydrator(&obj_ident));
     let field_initializers = fields.iter().map(|f| f.initializer());
@@ -100,7 +122,7 @@ fn named_field_variant_stanza(
         if let ::std::option::Option::Some((val, #obj_ident)) = ::autosurgeon::ReadDoc::get(
             doc,
             obj,
-            #variant_name_str,
+            #effective_name,
         )? {
             if ::std::matches!(val, ::automerge::Value::Object(::automerge::ObjType::Map)) {
                 #(#field_hydrators)*
@@ -115,6 +137,7 @@ fn named_field_variant_stanza(
 fn unnamed_field_variant_stanza(
     outer_ty: &syn::Ident,
     variant_name: &syn::Ident,
+    effective_name: &str,
     fields: &[UnnamedField],
 ) -> TokenStream {
     let ty = outer_ty;
@@ -123,12 +146,11 @@ fn unnamed_field_variant_stanza(
     let hydrators = fields.iter().map(|f| f.hydrator(&obj_ident));
     let initializers = fields.iter().map(|f| f.initializer());
 
-    let variant_name_str = variant_name.to_string();
     quote! {
         if let ::std::option::Option::Some((val, #obj_ident)) = ::autosurgeon::ReadDoc::get(
             doc,
             obj,
-            #variant_name_str,
+            #effective_name,
         )? {
             if ::std::matches!(val, ::automerge::Value::Object(::automerge::ObjType::List)) {
                 #(#hydrators)*
