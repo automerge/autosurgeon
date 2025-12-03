@@ -1,3 +1,7 @@
+# `0.10.0`
+
+* Added a "rename =" attribute to control the name of the field in the Automerge document
+
 # `0.9.0`
 
 * Update to `automerge` 0.7.0
