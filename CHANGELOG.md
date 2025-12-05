@@ -1,3 +1,11 @@
+# `0.10.1`
+
+* Fix a bug with `Text` where fresh text objects reconcile into existing text
+  objects using a splice rather than replacing the text entirely
+* Fix a bug in MapReconciler::put and SeqReconciler::set where the key of 
+  incoming values were ignore, leading to reconciling into existing values
+  where a new value should have been created.
+
 # `0.10.0`
 
 * Added a "rename =" attribute to control the name of the field in the Automerge document
