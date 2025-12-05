@@ -1,6 +1,6 @@
 [package]
 name = "autosurgeon"
-version = "0.10.0"
+version = "0.10.1"
 authors = { workspace = true }
 edition = { workspace = true }
 rust-version = { workspace = true }
@@ -11,7 +11,7 @@ license = { workspace = true }
 
 [dependencies]
 automerge = { workspace = true }
-autosurgeon-derive = { path = "../autosurgeon-derive", version = "0.10.0" }
+autosurgeon-derive = { path = "../autosurgeon-derive", version = "0.10.1" }
 similar = { version = "2.2.1", features = ["unicode"] }
 thiserror = "1.0.37"
 uuid = { version = "1.2.2", optional = true }
