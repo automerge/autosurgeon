@@ -6,6 +6,8 @@ use crate::{Doc, Prop, ReadDoc};
 
 mod impls;
 pub(crate) mod map;
+#[cfg(test)]
+mod reconcile_key_matching_tests;
 mod seq;
 
 /// A node in the document we are reconciling with.
@@ -219,6 +221,7 @@ pub trait TextReconciler {
         insert: S,
     ) -> Result<(), Self::Error>;
     fn heads(&self) -> &[automerge::ChangeHash];
+    fn update<S: AsRef<str>>(&mut self, new_text: S) -> Result<(), Self::Error>;
 }
 
 /// Placeholder type to be used for types which do not have a key
@@ -490,7 +493,7 @@ impl<'a, D: Doc> Reconciler for RootReconciler<'a, D> {
 }
 
 enum PropAction<'a> {
-    Put(Prop<'a>),
+    Put { prop: Prop<'a>, create: bool },
     Insert(u32),
 }
 
@@ -501,7 +504,14 @@ impl PropAction<'_> {
         obj: &automerge::ObjId,
     ) -> Result<Option<(automerge::Value<'b>, automerge::ObjId)>, automerge::AutomergeError> {
         match self {
-            Self::Put(prop) => doc.get(obj, prop),
+            Self::Put {
+                prop,
+                create: false,
+            } => doc.get(obj, prop),
+            Self::Put {
+                prop: _,
+                create: true,
+            } => Ok(None),
             Self::Insert(_idx) => Ok(None),
         }
     }
@@ -513,7 +523,7 @@ impl PropAction<'_> {
         objtype: automerge::ObjType,
     ) -> Result<automerge::ObjId, automerge::AutomergeError> {
         match self {
-            Self::Put(prop) => doc.put_object(obj, prop, objtype),
+            Self::Put { prop, create: _ } => doc.put_object(obj, prop, objtype),
             Self::Insert(idx) => doc.insert_object(obj, (*idx) as usize, objtype),
         }
     }
@@ -525,7 +535,7 @@ impl PropAction<'_> {
         value: V,
     ) -> Result<(), automerge::AutomergeError> {
         match self {
-            Self::Put(p) => doc.put(obj, p, value),
+            Self::Put { prop: p, create: _ } => doc.put(obj, p, value),
             Self::Insert(idx) => doc.insert(obj, (*idx) as usize, value),
         }
     }
@@ -681,7 +691,7 @@ impl<D: Doc> CounterReconciler for AtCounter<'_, D> {
     fn increment(&mut self, by: i64) -> Result<(), Self::Error> {
         use automerge::Value;
         match &self.action {
-            PropAction::Put(prop) => {
+            PropAction::Put { prop, create: _ } => {
                 if let Some((Value::Scalar(s), _)) = self.doc.get(self.current_obj, prop)? {
                     if let ScalarValue::Counter(_) = s.as_ref() {
                         self.doc.increment(self.current_obj, prop, by)?;
@@ -741,11 +751,21 @@ impl<D: Doc> MapReconciler for InMap<'_, D> {
     }
 
     fn put<R: Reconcile, P: AsRef<str>>(&mut self, prop: P, value: R) -> Result<(), Self::Error> {
+        let existing_key = self.hydrate_entry_key::<R, _>(prop.as_ref())?;
+        let new_key = value.key();
+        let create_new_object = match (existing_key, new_key) {
+            (LoadKey::Found(before), LoadKey::Found(after)) if before == after => false,
+            (LoadKey::Found(_), _) | (_, LoadKey::Found(_)) => true,
+            _ => false,
+        };
         let reconciler = PropReconciler {
             heads: self.heads,
             current_obj: self.current_obj.clone(),
             doc: self.doc,
-            action: PropAction::Put(prop.as_ref().into()),
+            action: PropAction::Put {
+                prop: prop.as_ref().into(),
+                create: create_new_object,
+            },
         };
         value.reconcile(reconciler)?;
         Ok(())
@@ -826,11 +846,21 @@ impl<D: Doc> SeqReconciler for InSeq<'_, D> {
     }
 
     fn set<R: Reconcile>(&mut self, index: usize, value: R) -> Result<(), Self::Error> {
+        let existing_key = self.hydrate_item_key::<R>(index)?;
+        let new_key = value.key();
+        let create_new_object = match (existing_key, new_key) {
+            (LoadKey::Found(before), LoadKey::Found(after)) if before == after => false,
+            (LoadKey::Found(_), _) | (_, LoadKey::Found(_)) => true,
+            _ => false,
+        };
         let reconciler = PropReconciler {
             heads: self.heads,
             doc: self.doc,
             current_obj: self.obj.clone(),
-            action: PropAction::Put(index.into()),
+            action: PropAction::Put {
+                prop: index.into(),
+                create: create_new_object,
+            },
         };
         value.reconcile(reconciler)?;
         Ok(())
@@ -881,6 +911,11 @@ impl<D: Doc> TextReconciler for InText<'_, D> {
     fn heads(&self) -> &[automerge::ChangeHash] {
         self.heads
     }
+
+    fn update<S: AsRef<str>>(&mut self, new_text: S) -> Result<(), Self::Error> {
+        self.doc.update_text(&self.obj, new_text.as_ref())?;
+        Ok(())
+    }
 }
 
 /// Reconcile `value` with `doc`
@@ -923,11 +958,22 @@ pub fn reconcile_prop<'a, D: Doc, R: Reconcile, O: AsRef<automerge::ObjId>, P: I
     prop: P,
     value: R,
 ) -> Result<(), ReconcileError> {
+    let prop = prop.into();
     let heads = doc.get_heads();
+    let existing_key = R::hydrate_key(doc, obj.as_ref(), prop.clone())?;
+    let new_key = value.key();
+    let create_new_object = match (existing_key, new_key) {
+        (LoadKey::Found(before), LoadKey::Found(after)) if before == after => false,
+        (LoadKey::Found(_), _) | (_, LoadKey::Found(_)) => true,
+        _ => false,
+    };
     let reconciler = PropReconciler {
         heads: &heads,
         doc,
-        action: PropAction::Put(prop.into()),
+        action: PropAction::Put {
+            prop: prop.clone(),
+            create: create_new_object,
+        },
         current_obj: obj.as_ref().clone(),
     };
     value.reconcile(reconciler)?;

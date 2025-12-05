@@ -83,6 +83,8 @@ pub trait Doc: ReadDoc {
         del: isize,
         text: &str,
     ) -> Result<(), AutomergeError>;
+
+    fn update_text<O: AsRef<ObjId>>(&mut self, obj: O, text: &str) -> Result<(), AutomergeError>;
 }
 
 impl ReadDoc for am::AutoCommit {
@@ -297,5 +299,9 @@ impl<T: am::transaction::Transactable + ReadDoc> Doc for T {
         text: &str,
     ) -> Result<(), AutomergeError> {
         am::transaction::Transactable::splice_text(self, obj, pos, del, text)
+    }
+
+    fn update_text<O: AsRef<ObjId>>(&mut self, obj: O, text: &str) -> Result<(), AutomergeError> {
+        am::transaction::Transactable::update_text(self, obj.as_ref(), text)
     }
 }
