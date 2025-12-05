@@ -29,3 +29,19 @@ fn diff_generates_splices() {
     let start3 = autosurgeon::hydrate::<_, TextDoc>(&doc).unwrap();
     assert_eq!(start3.content.as_str(), "another day");
 }
+
+#[test]
+fn test_fresh_inside_struct_creates_new_text() {
+    let mut doc1 = automerge::AutoCommit::new();
+    let init = TextDoc {
+        content: Text::with_value("original"),
+    };
+    autosurgeon::reconcile(&mut doc1, &init).unwrap();
+
+    let mut second: TextDoc = autosurgeon::hydrate(&doc1).unwrap();
+    second.content = Text::with_value("new");
+    autosurgeon::reconcile(&mut doc1, &second).unwrap();
+
+    let third: TextDoc = autosurgeon::hydrate(&doc1).unwrap();
+    assert_eq!(third.content.as_str(), "new");
+}

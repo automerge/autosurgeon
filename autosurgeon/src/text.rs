@@ -1,5 +1,7 @@
+use automerge::{ObjId, ObjType, Value};
+
 use crate::{
-    reconcile::{NoKey, TextReconciler},
+    reconcile::{LoadKey, TextReconciler},
     Hydrate, ReadDoc, Reconcile,
 };
 
@@ -220,6 +222,7 @@ enum State {
     Rehydrated {
         value: String,
         edits: Vec<Splice>,
+        obj: ObjId,
         from_heads: Vec<automerge::ChangeHash>,
     },
 }
@@ -232,7 +235,33 @@ struct Splice {
 }
 
 impl Reconcile for Text {
-    type Key<'a> = NoKey;
+    type Key<'a> = ObjId;
+
+    fn hydrate_key<'a, D: ReadDoc>(
+        doc: &D,
+        obj: &automerge::ObjId,
+        prop: crate::Prop<'_>,
+    ) -> Result<crate::reconcile::LoadKey<Self::Key<'a>>, crate::ReconcileError> {
+        let Some((val, obj_id)) = doc.get(obj, &prop)? else {
+            return Ok(LoadKey::KeyNotFound);
+        };
+        if matches!(val, Value::Object(ObjType::Text)) {
+            return Ok(LoadKey::Found(obj_id));
+        }
+        Ok(LoadKey::KeyNotFound)
+    }
+
+    fn key(&self) -> LoadKey<Self::Key<'_>> {
+        match &self.0 {
+            State::Fresh(_) => LoadKey::KeyNotFound,
+            State::Rehydrated {
+                value: _,
+                edits: _,
+                obj,
+                from_heads: _,
+            } => LoadKey::Found(obj.clone()),
+        }
+    }
 
     fn reconcile<R: crate::Reconciler>(&self, mut reconciler: R) -> Result<(), R::Error> {
         let mut t = reconciler.text()?;
@@ -271,6 +300,7 @@ impl Hydrate for Text {
             value,
             edits: Vec::new(),
             from_heads: doc.get_heads(),
+            obj: obj.clone(),
         }))
     }
 }
@@ -317,5 +347,19 @@ mod tests {
     fn test_eq() {
         let text: Text = Text::with_value("hello");
         assert_eq!(text, text);
+    }
+
+    #[test]
+    fn test_fresh_creates_new_text() {
+        let mut doc1 = automerge::AutoCommit::new();
+        let text = Text::with_value("glitters");
+        reconcile_prop(&mut doc1, automerge::ROOT, "text", &text).unwrap();
+
+        // Now do it again
+        let text = Text::with_value("glitters");
+        reconcile_prop(&mut doc1, automerge::ROOT, "text", &text).unwrap();
+
+        let result: Text = hydrate_prop(&doc1, &automerge::ROOT, "text").unwrap();
+        assert_eq!(result.as_str(), "glitters");
     }
 }
