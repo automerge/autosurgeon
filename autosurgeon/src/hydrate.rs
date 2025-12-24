@@ -371,6 +371,7 @@ mod tests {
     struct Employee {
         name: String,
         number: u64,
+        mass: u8,
     }
 
     impl Hydrate for Company {
@@ -385,7 +386,8 @@ mod tests {
         fn hydrate_map<D: ReadDoc>(doc: &D, obj: &automerge::ObjId) -> Result<Self, HydrateError> {
             let name = hydrate_prop(doc, obj, "name")?;
             let number = hydrate_prop(doc, obj, "number")?;
-            Ok(Employee { name, number })
+            let mass = hydrate_prop(doc, obj, "number")?;
+            Ok(Employee { name, number, mass })
         }
     }
 
@@ -410,6 +412,7 @@ mod tests {
                 employees: vec![Employee {
                     name: "Satya Nadella".to_string(),
                     number: 1,
+                    mass: 255,
                 }],
             }
         );
@@ -436,6 +439,7 @@ mod tests {
                 employees: vec![Employee {
                     name: "Satya Nadella".to_string(),
                     number: 1,
+                    mass: 255
                 }],
             }
         );
