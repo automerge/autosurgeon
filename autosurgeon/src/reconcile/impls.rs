@@ -233,11 +233,13 @@ impl<T: Reconcile> Reconcile for Option<T> {
         prop: crate::Prop<'_>,
     ) -> Result<LoadKey<Self::Key<'a>>, crate::ReconcileError> {
         match doc.get(obj, &prop)? {
-            Some((Value::Scalar(s), _)) => match s.as_ref() {
-                ScalarValue::Null => Ok(LoadKey::KeyNotFound),
+            Some(x) => match x {
+                (Value::Scalar(s), _) if matches!(s.as_ref(), ScalarValue::Null) => {
+                    Ok(LoadKey::KeyNotFound)
+                }
                 _ => T::hydrate_key(doc, obj, prop),
             },
-            _ => Ok(LoadKey::KeyNotFound),
+            None => Ok(LoadKey::KeyNotFound),
         }
     }
 }
