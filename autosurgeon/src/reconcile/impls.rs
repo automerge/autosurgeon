@@ -241,3 +241,30 @@ impl<T: Reconcile> Reconcile for Option<T> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{hydrate_prop, reconcile_prop, Text};
+
+    /// Reconciling Option<Text> twice should not lose content.
+    #[test]
+    fn option_text_survives_re_reconciliation() {
+        let mut doc = automerge::AutoCommit::new();
+
+        let text: Option<Text> = Some(Text::with_value("hello"));
+        reconcile_prop(&mut doc, automerge::ROOT, "greeting", &text).unwrap();
+
+        // Hydrate and reconcile again without changes.
+        let hydrated: Option<Text> = hydrate_prop(&doc, &automerge::ROOT, "greeting").unwrap();
+        assert_eq!(hydrated.as_ref().map(|t| t.as_str()), Some("hello"));
+
+        reconcile_prop(&mut doc, automerge::ROOT, "greeting", &hydrated).unwrap();
+
+        let result: Option<Text> = hydrate_prop(&doc, &automerge::ROOT, "greeting").unwrap();
+        assert_eq!(
+            result.as_ref().map(|t| t.as_str()),
+            Some("hello"),
+            "Option<Text> content should survive re-reconciliation"
+        );
+    }
+}
