@@ -545,6 +545,7 @@ impl<'a> EnumKey<'a> {
         };
         let span = Span::mixed_site();
         Some(quote_spanned! {span=>
+            #[doc(hidden)]
             #[derive(::std::clone::Clone, ::std::cmp::PartialEq)]
             #[allow(clippy::derive_partial_eq_without_eq)]
             #vis enum #name_with_lifetime {
