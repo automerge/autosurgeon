@@ -119,3 +119,87 @@ impl<T: Hydrate> Hydrate for Box<T> {
         Ok(Box::new(T::hydrate(doc, obj, prop)?))
     }
 }
+
+macro_rules! tuple_impl {
+    ($($idx:tt $ty:tt),+) => {
+        impl<$($ty,)+> Hydrate for ($($ty,)+)
+            where $($ty: Hydrate,)+ {
+
+            fn hydrate_seq<D: ReadDoc>(doc: &D, obj: &automerge::ObjId) -> Result<Self, HydrateError> {
+                // Determine expected tuple length from the highest index + 1
+                let arity = 0usize;
+                $(let arity = arity.max($idx);)+
+                let arity = arity + 1;
+                let len = doc.length(obj);
+                if len != arity {
+                    return Err(HydrateError::unexpected(
+                        "tuple arity mismatch",
+                        format!("tuple of arity {arity} but array of length {len}"),
+                    ));
+                }
+                Ok((
+                    $($ty::hydrate(doc, obj, $crate::Prop::Index($idx))?,)+
+                ))
+            }
+        }
+    }
+}
+
+tuple_impl!(0 N0);
+tuple_impl!(0 N0, 1 N1);
+tuple_impl!(0 N0, 1 N1, 2 N2);
+tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3);
+tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4);
+tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5);
+tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6);
+tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7);
+tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8);
+tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9);
+tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10);
+tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11);
+tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12);
+tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13);
+tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14);
+tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15);
+tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16);
+tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17);
+tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18);
+tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19);
+tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19, 20 N20);
+tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19, 20 N20, 21 N21);
+tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19, 20 N20, 21 N21, 22 N22);
+tuple_impl!(0 N0, 1 N1, 2 N2, 3 N3, 4 N4, 5 N5, 6 N6, 7 N7, 8 N8, 9 N9, 10 N10, 11 N11, 12 N12, 13 N13, 14 N14, 15 N15, 16 N16, 17 N17, 18 N18, 19 N19, 20 N20, 21 N21, 22 N22, 23 N23);
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn hydrate_tuple_2_round_trip() {
+        let mut doc = automerge::AutoCommit::new();
+        // Write a 2-tuple via Reconcile from utils to a list
+        crate::reconcile::reconcile_prop(&mut doc, automerge::ROOT, "t", (1u64, 2u64)).unwrap();
+        let hydrated: (u64, u64) =
+            crate::hydrate::hydrate_prop(&doc, automerge::ROOT, "t").unwrap();
+        assert_eq!(hydrated, (1, 2));
+    }
+
+    #[test]
+    fn hydrate_tuple_3_round_trip() {
+        let mut doc = automerge::AutoCommit::new();
+        crate::reconcile::reconcile_prop(&mut doc, automerge::ROOT, "t", (1u64, 2u64, 3u64))
+            .unwrap();
+        let hydrated: (u64, u64, u64) =
+            crate::hydrate::hydrate_prop(&doc, automerge::ROOT, "t").unwrap();
+        assert_eq!(hydrated, (1, 2, 3));
+    }
+
+    #[test]
+    fn hydrate_tuple_wrong_len_errors() {
+        let mut doc = automerge::AutoCommit::new();
+        crate::reconcile::reconcile_prop(&mut doc, automerge::ROOT, "t", (1u64, 2u64)).unwrap();
+        let err =
+            crate::hydrate::hydrate_prop::<_, (u64, u64, u64), _, _>(&doc, automerge::ROOT, "t")
+                .unwrap_err();
+        let msg = format!("{}", err);
+        assert!(msg.contains("tuple arity mismatch"));
+    }
+}
