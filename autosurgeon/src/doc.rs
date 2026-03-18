@@ -32,6 +32,7 @@ pub trait ReadDoc {
 
     fn text<O: AsRef<ObjId>>(&self, obj: O) -> Result<String, AutomergeError>;
     fn parents<O: AsRef<ObjId>>(&self, obj: O) -> Result<Self::Parents<'_>, AutomergeError>;
+    fn is_empty(&self) -> bool;
 }
 
 /// An abstraction over the read + write operations we need from an automerge document
@@ -85,6 +86,16 @@ pub trait Doc: ReadDoc {
     ) -> Result<(), AutomergeError>;
 
     fn update_text<O: AsRef<ObjId>>(&mut self, obj: O, text: &str) -> Result<(), AutomergeError>;
+
+    fn batch_create<O: AsRef<ObjId>, P: Into<am::Prop>>(
+        &mut self,
+        obj: O,
+        prop: P,
+        value: am::hydrate::Value,
+        insert: bool,
+    ) -> Result<(), AutomergeError>;
+
+    fn init_root_from_hydrate(&mut self, value: &am::hydrate::Map) -> Result<(), AutomergeError>;
 }
 
 impl ReadDoc for am::AutoCommit {
@@ -134,6 +145,10 @@ impl ReadDoc for am::AutoCommit {
 
     fn parents<O: AsRef<ObjId>>(&self, obj: O) -> Result<Self::Parents<'_>, AutomergeError> {
         am::ReadDoc::parents(self, obj)
+    }
+
+    fn is_empty(&self) -> bool {
+        am::ReadDoc::keys(self, am::ROOT).count() == 0
     }
 }
 
@@ -186,6 +201,10 @@ impl ReadDoc for am::transaction::Transaction<'_> {
     fn parents<O: AsRef<ObjId>>(&self, obj: O) -> Result<Self::Parents<'_>, AutomergeError> {
         am::ReadDoc::parents(self, obj)
     }
+
+    fn is_empty(&self) -> bool {
+        am::ReadDoc::keys(self, am::ROOT).count() == 0
+    }
 }
 
 impl ReadDoc for am::Automerge {
@@ -234,6 +253,10 @@ impl ReadDoc for am::Automerge {
 
     fn parents<O: AsRef<ObjId>>(&self, obj: O) -> Result<Self::Parents<'_>, AutomergeError> {
         am::ReadDoc::parents(self, obj)
+    }
+
+    fn is_empty(&self) -> bool {
+        am::ReadDoc::keys(self, am::ROOT).count() == 0
     }
 }
 
@@ -303,5 +326,37 @@ impl<T: am::transaction::Transactable + ReadDoc> Doc for T {
 
     fn update_text<O: AsRef<ObjId>>(&mut self, obj: O, text: &str) -> Result<(), AutomergeError> {
         am::transaction::Transactable::update_text(self, obj.as_ref(), text)
+    }
+
+    fn batch_create<O: AsRef<ObjId>, P: Into<am::Prop>>(
+        &mut self,
+        obj: O,
+        prop: P,
+        value: am::hydrate::Value,
+        insert: bool,
+    ) -> Result<(), AutomergeError> {
+        let prop = prop.into();
+        if let am::hydrate::Value::Scalar(sv) = value {
+            if insert {
+                if let am::Prop::Seq(idx) = prop {
+                    am::transaction::Transactable::insert(self, obj.as_ref(), idx, sv)?;
+                    return Ok(());
+                }
+            }
+            am::transaction::Transactable::put(self, obj.as_ref(), prop, sv)?;
+            return Ok(());
+        }
+        am::transaction::Transactable::batch_create_object(
+            self,
+            obj.as_ref(),
+            prop,
+            &value,
+            insert,
+        )?;
+        Ok(())
+    }
+
+    fn init_root_from_hydrate(&mut self, value: &am::hydrate::Map) -> Result<(), AutomergeError> {
+        am::transaction::Transactable::init_root_from_hydrate(self, value)
     }
 }
