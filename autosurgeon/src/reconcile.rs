@@ -8,7 +8,9 @@ mod impls;
 pub(crate) mod map;
 #[cfg(test)]
 mod reconcile_key_matching_tests;
+pub mod reconcile_to_am_hydrate;
 mod seq;
+pub use reconcile_to_am_hydrate::reconcile_to_am_hydrate;
 
 /// A node in the document we are reconciling with.
 ///
@@ -758,6 +760,13 @@ impl<D: Doc> MapReconciler for InMap<'_, D> {
             (LoadKey::Found(_), _) | (_, LoadKey::Found(_)) => true,
             _ => false,
         };
+        if create_new_object {
+            if let Some(hydrate_val) = reconcile_to_am_hydrate(value) {
+                self.doc
+                    .batch_create(&self.current_obj, prop.as_ref(), hydrate_val, false)?;
+            }
+            return Ok(());
+        }
         let reconciler = PropReconciler {
             heads: self.heads,
             current_obj: self.current_obj.clone(),
@@ -835,14 +844,18 @@ impl<D: Doc> SeqReconciler for InSeq<'_, D> {
     }
 
     fn insert<R: Reconcile>(&mut self, index: usize, value: R) -> Result<(), Self::Error> {
-        let reconciler = PropReconciler {
-            heads: self.heads,
-            doc: self.doc,
-            current_obj: self.obj.clone(),
-            action: PropAction::Insert(index as u32),
-        };
-        value.reconcile(reconciler)?;
+        if let Some(hydrate_val) = reconcile_to_am_hydrate(value) {
+            self.doc.batch_create(&self.obj, index, hydrate_val, true)?;
+        }
         Ok(())
+        // let reconciler = PropReconciler {
+        //     heads: self.heads,
+        //     doc: self.doc,
+        //     current_obj: self.obj.clone(),
+        //     action: PropAction::Insert(index as u32),
+        // };
+        // value.reconcile(reconciler)?;
+        // Ok(())
     }
 
     fn set<R: Reconcile>(&mut self, index: usize, value: R) -> Result<(), Self::Error> {
@@ -853,6 +866,13 @@ impl<D: Doc> SeqReconciler for InSeq<'_, D> {
             (LoadKey::Found(_), _) | (_, LoadKey::Found(_)) => true,
             _ => false,
         };
+        if create_new_object {
+            if let Some(hydrate_val) = reconcile_to_am_hydrate(value) {
+                self.doc
+                    .batch_create(&self.obj, index, hydrate_val, false)?;
+            }
+            return Ok(());
+        }
         let reconciler = PropReconciler {
             heads: self.heads,
             doc: self.doc,
@@ -923,6 +943,15 @@ impl<D: Doc> TextReconciler for InText<'_, D> {
 /// This will throw an error if the implementation of `Reconcile` for `R` does anything except call
 /// `Reconciler::map` because only a map is a valid object for the root of an automerge document.
 pub fn reconcile<R: Reconcile, D: Doc>(doc: &mut D, value: R) -> Result<(), ReconcileError> {
+    if doc.is_empty() {
+        if let Some(value) = reconcile_to_am_hydrate(value) {
+            let automerge::hydrate::Value::Map(map) = value else {
+                return Err(ReconcileError::TopLevelNotMap);
+            };
+            doc.init_root_from_hydrate(&map)?;
+        }
+        return Ok(());
+    }
     let reconciler = RootReconciler {
         heads: doc.get_heads(),
         doc,

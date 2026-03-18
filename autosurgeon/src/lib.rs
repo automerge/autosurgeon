@@ -558,7 +558,8 @@ pub use hydrate::{hydrate, hydrate_path, hydrate_prop, Hydrate, HydrateError, Ma
 pub mod reconcile;
 #[doc(inline)]
 pub use reconcile::{
-    hydrate_key, reconcile, reconcile_insert, reconcile_prop, Reconcile, ReconcileError, Reconciler,
+    hydrate_key, reconcile, reconcile_insert, reconcile_prop, reconcile_to_am_hydrate, Reconcile,
+    ReconcileError, Reconciler,
 };
 mod text;
 pub use text::Text;
