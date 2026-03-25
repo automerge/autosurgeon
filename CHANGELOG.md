@@ -1,3 +1,8 @@
+# `0.11.0`
+
+* Update to `automerge@0.8.0` 
+* Make `Reconcile` more efficient when importing large objects
+
 # `0.10.1`
 
 * Fix a bug with `Text` where fresh text objects reconcile into existing text
