@@ -183,6 +183,19 @@ impl Variant<'_> {
             }
         }
     }
+
+    fn match_arm_untagged(&self, outer_ty: &syn::Ident) -> Result<proc_macro2::TokenStream, DeriveError> {
+        match self {
+            Self::Unit { name, .. } => Err(DeriveError::Untagged(name.span())),
+            Self::NewType { name, .. } => {
+                    Ok(quote! {
+                        #outer_ty::#name(item) => item.reconcile(reconciler),
+                    })
+                }
+            Self::Named { name, .. } => Err(DeriveError::Untagged(name.span())),
+            Self::Unnamed { name, .. } => Err(DeriveError::Untagged(name.span())),
+        }
+    }
 }
 
 #[derive(PartialEq, Eq)]
@@ -687,6 +700,41 @@ pub(super) fn enum_impl(
             #( #matches),*
         }
     };
+    Ok(ReconcileImpl {
+        key_type: enumkey.key_type(),
+        reconcile,
+        hydrate_key: enumkey.hydrate_key(),
+        get_key: enumkey.get_key(),
+        key_type_def: enumkey.type_def(vis),
+    })
+}
+
+pub(super) fn enum_untagged_impl(
+    vis: &syn::Visibility,
+    name: &syn::Ident,
+    data: &syn::DataEnum,
+) -> Result<ReconcileImpl, DeriveError> {
+    let variants = data
+        .variants
+        .iter()
+        .map(Variant::try_from)
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let matches = variants.iter().try_fold::<_, _, Result<_, DeriveError>>(
+        Vec::new(),
+        |mut results, v| {
+            results.push(v.match_arm_untagged(name)?);
+            Ok(results)
+        },
+    )?;
+
+    let reconcile = quote! {
+        match self {
+            #(#matches)*
+        }
+    };
+
+    let enumkey = EnumKey::from_variants(name, variants.iter())?;
     Ok(ReconcileImpl {
         key_type: enumkey.key_type(),
         reconcile,
