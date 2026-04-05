@@ -6,6 +6,7 @@ use syn::spanned::Spanned;
 pub(crate) struct Container {
     reconcile_with: Option<ReconcileWith>,
     hydrate_with: Option<HydrateWith>,
+    untagged: bool,
 }
 
 impl Container {
@@ -19,6 +20,7 @@ impl Container {
                 result = Some(Container {
                     reconcile_with: ReconcileWith::from_attrs(&attrs)?,
                     hydrate_with: HydrateWith::from_attrs(&attrs)?,
+                    untagged: attrs.untagged,
                 });
             }
         }
@@ -31,6 +33,10 @@ impl Container {
 
     pub(crate) fn hydrate_with(&self) -> Option<TokenStream> {
         self.hydrate_with.as_ref().map(|h| h.hydrate_with())
+    }
+    
+    pub(crate) fn untagged(&self) -> bool {
+        self.untagged
     }
 }
 
@@ -347,6 +353,7 @@ struct AutosurgeonAttrs {
     hydrate: Option<syn::Path>,
     missing: Option<syn::Path>,
     rename: Option<String>,
+    untagged: bool
 }
 
 impl AutosurgeonAttrs {
@@ -359,6 +366,7 @@ impl AutosurgeonAttrs {
             hydrate: None,
             missing: None,
             rename: None,
+            untagged: false
         };
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("reconcile") {
@@ -385,7 +393,9 @@ impl AutosurgeonAttrs {
                 let value = meta.value()?;
                 let s: syn::LitStr = value.parse()?;
                 result.rename = Some(s.value());
-            } else {
+            } else if meta.path.is_ident("untagged") {
+                result.untagged = true;
+        } else {
                 return Err(meta.error("unknown attribute"));
             }
             Ok(())

@@ -1,10 +1,10 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
-use syn::{
-    parse_macro_input, parse_quote, spanned::Spanned, DeriveInput, Fields, GenericParam, Generics,
-};
+use syn::{parse_macro_input, parse_quote, spanned::Spanned, DeriveInput, Fields, GenericParam, Generics};
 
 use crate::attrs;
+use crate::hydrate::error::DeriveError;
+
 mod named_field;
 mod newtype_field;
 mod unnamed_field;
@@ -28,7 +28,11 @@ pub fn derive_hydrate(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 
     let result = match &input.data {
         syn::Data::Struct(datastruct) => on_struct(&input, datastruct),
-        syn::Data::Enum(dataenum) => on_enum(&input, dataenum),
+        syn::Data::Enum(dataenum) => if container_attrs.untagged() {
+            on_enum_untagged(&input, dataenum)
+        } else {
+            on_enum(&input, dataenum)
+        },
         _ => todo!(),
     };
     let tokens = match result {
@@ -126,6 +130,86 @@ fn on_enum(
             #hydrate_string
 
             #hydrate_map
+        }
+    })
+}
+
+fn on_enum_untagged(
+    input: &DeriveInput,
+    enumstruct: &syn::DataEnum,
+) -> Result<TokenStream, error::DeriveError> {
+
+    let name = &input.ident;
+
+    let matches: Vec<proc_macro2::TokenStream> = enumstruct.variants
+        .iter()
+        .map(|v| {
+            let variant = &v.ident;
+
+            match &v.fields {
+                syn::Fields::Unit => Err(DeriveError::Untagged(None)),
+                syn::Fields::Unnamed(fields) => {
+                    if fields.unnamed.len() == 1 {
+                        let field = fields.unnamed.first().unwrap();
+                        let inner_type = match &field.ty {
+                            syn::Type::Path(path) => &path.path.segments[0].ident,
+                            _ => panic!("Expected a type path for variant {}", variant),
+                        };
+
+                        Ok(quote! {
+                            let result = #inner_type::hydrate_map(doc, obj);
+                            if result.is_ok() {
+                                return Ok(#name::#variant(result?))
+                            }
+                        })
+                    } else {
+                        Err(DeriveError::Untagged(Some(fields.span())))
+                    }
+                }
+                syn::Fields::Named(field) => Err(DeriveError::Untagged(Some(field.span()))),
+            }
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(quote! {
+        impl autosurgeon::Hydrate for #name {
+            fn hydrate_map<D: autosurgeon::ReadDoc>(doc: &D, obj: &automerge::ObjId) -> Result<Self, autosurgeon::HydrateError> {
+                let Some(obj_type) = doc.object_type(obj) else {
+                    return Err(autosurgeon::HydrateError::unexpected(
+                        "a value matching to any of the members of the untagged enum",
+                        "a scalar value".to_string(),
+                    ));
+                };
+
+                match obj_type {
+                    automerge::ObjType::Map | automerge::ObjType::Table => {
+                        let entries: Vec<String> = doc
+                            .map_range(obj.clone(), ..)
+                            .map(|item| {
+                                item.key.to_string()
+                            })
+                            .collect();
+
+                        #(#matches)*
+
+                        Err(autosurgeon::HydrateError::unexpected(
+                            "a value matching to any of the members of the untagged enum",
+                            format!(
+                                "a structure with the following fields: {:?}",
+                                entries
+                            ),
+                        ))
+                    }
+                    automerge::ObjType::Text => Err(autosurgeon::HydrateError::unexpected(
+                        "a value matching to any of the members of the untagged enum",
+                        "a text object".to_string(),
+                    )),
+                    automerge::ObjType::List => Err(autosurgeon::HydrateError::unexpected(
+                        "a value matching to any of the members of the untagged enum",
+                        "a list object".to_string(),
+                    )),
+                }
+            }
         }
     })
 }
@@ -374,6 +458,8 @@ mod error {
         InvalidFieldAttrs(#[from] syn::parse::Error),
         #[error("cannot derive hydrate for unit struct")]
         HydrateForUnit,
+        #[error("untagged is only available on Enums with exclusively newtype fields")]
+        Untagged(Option<Span>),
     }
 
     impl DeriveError {
@@ -381,6 +467,7 @@ mod error {
             match self {
                 Self::InvalidFieldAttrs(e) => Some(e.span()),
                 Self::HydrateForUnit => None,
+                Self::Untagged(span) => *span,
             }
         }
     }
