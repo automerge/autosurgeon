@@ -1,3 +1,7 @@
+# Unreleased
+
+* Update to `automerge@0.10.0`
+
 # `0.11.0`
 
 * Update to `automerge@0.8.0` 
