@@ -10,5 +10,5 @@ repository = "https://github.com/automerge/autosurgeon"
 license = "MIT"
 
 [workspace.dependencies]
-automerge = "0.10.0"
-automerge-test = "0.10.0"
+automerge = "0.11.0"
+automerge-test = "0.11.0"

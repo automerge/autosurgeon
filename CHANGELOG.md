@@ -1,6 +1,10 @@
-# `0.12.0`
+# Unreleased
 
 * Update to `automerge` 0.11.0
+
+# `0.12.0`
+
+* Update to `automerge` 0.10.0
 
 # `0.11.0`
 
