@@ -1,4 +1,4 @@
-# Unreleased
+# `0.13.0`
 
 * Update to `automerge` 0.11.0
 
