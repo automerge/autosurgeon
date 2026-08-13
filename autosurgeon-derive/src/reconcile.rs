@@ -121,7 +121,11 @@ fn reconcile_impl(
             }
             Fields::Unit => Err(error::DeriveError::Unit),
         },
-        Data::Enum(ref data) => enum_impl::enum_impl(vis, name, generics, reconciler_ident, data),
+        Data::Enum(ref data) => if container_attrs.untagged() {
+            enum_impl::enum_untagged_impl(vis, name, data)
+        } else {
+            enum_impl::enum_impl(vis, name, generics, reconciler_ident, data)
+        },
         Data::Union(_) => Err(error::DeriveError::Union),
     }
 }
@@ -280,6 +284,8 @@ mod error {
         Unit,
         #[error("cannot derive Reconcile for a Union")]
         Union,
+        #[error("untagged is only available on Enums with exclusively newtype fields")]
+        Untagged(Span),
         #[error(transparent)]
         Syn(#[from] syn::Error),
     }
@@ -290,6 +296,7 @@ mod error {
                 Self::InvalidKeyAttr(e) => e.span(),
                 Self::Unit => None,
                 Self::Union => None,
+                Self::Untagged(span) => Some(*span),
                 Self::Syn(s) => Some(s.span()),
             }
         }
