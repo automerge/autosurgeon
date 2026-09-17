@@ -1,4 +1,4 @@
-# Unreleased
+# `0.14.0`
 
 * Update to `automerge` 0.12.0
 * Update minimum supported Rust version to 1.90
