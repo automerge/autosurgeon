@@ -5,10 +5,10 @@ resolver = "2"
 [workspace.package]
 authors = ["Alex Good <alex@memoryandthought.me>"]
 edition = "2021"
-rust-version = "1.89"
+rust-version = "1.90"
 repository = "https://github.com/automerge/autosurgeon"
 license = "MIT"
 
 [workspace.dependencies]
-automerge = "0.11.0"
-automerge-test = "0.11.0"
+automerge = "0.12.0"
+automerge-test = "0.12.0"
